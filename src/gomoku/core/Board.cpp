@@ -105,77 +105,104 @@ bool Board::createsIllegalDoubleThree(Move m, const RuleSet& rules) const
     if (!rules.forbidDoubleThree)
         return false;
 
-    // Exception: un coup QUI CAPTURE est autorisé même s'il crée un double-trois
+    // Exception : un coup capturant est autorisé même s'il crée un double-trois
     if (rules.capturesEnabled && wouldCapture(m))
         return false;
 
     const Cell ME = playerToCell(m.by);
     const Cell OP = (ME == Cell::Black ? Cell::White : Cell::Black);
 
-    // cases virtuellement retirées par capture causée par m
-    auto capturedVirt = [&](int x, int y) -> bool {
-        static constexpr int DX[4] = { 1, 0, 1, 1 };
-        static constexpr int DY[4] = { 0, 1, 1, -1 };
-        for (int d = 0; d < 4; ++d) {
-            // sens +
-            int x1 = m.pos.x + DX[d], y1 = m.pos.y + DY[d];
-            int x2 = m.pos.x + 2 * DX[d], y2 = m.pos.y + 2 * DY[d];
-            int x3 = m.pos.x + 3 * DX[d], y3 = m.pos.y + 3 * DY[d];
-            if (isInside(static_cast<uint8_t>(x3), static_cast<uint8_t>(y3)) && at(static_cast<uint8_t>(x1), static_cast<uint8_t>(y1)) == OP && at(static_cast<uint8_t>(x2), static_cast<uint8_t>(y2)) == OP && at(static_cast<uint8_t>(x3), static_cast<uint8_t>(y3)) == ME)
-                return (x == x1 && y == y1) || (x == x2 && y == y2);
-            // sens -
-            int X1 = m.pos.x - DX[d], Y1 = m.pos.y - DY[d];
-            int X2 = m.pos.x - 2 * DX[d], Y2 = m.pos.y - 2 * DY[d];
-            int X3 = m.pos.x - 3 * DX[d], Y3 = m.pos.y - 3 * DY[d];
-            if (isInside(static_cast<uint8_t>(X3), static_cast<uint8_t>(Y3)) && at(static_cast<uint8_t>(X1), static_cast<uint8_t>(Y1)) == OP && at(static_cast<uint8_t>(X2), static_cast<uint8_t>(Y2)) == OP && at(static_cast<uint8_t>(X3), static_cast<uint8_t>(Y3)) == ME)
-                return (x == X1 && y == Y1) || (x == X2 && y == Y2);
+    // --- Pré-calcul des captures virtuelles autour de m via capRaysByDir ---
+    uint16_t capturedIdx[8];
+    int captured_n = 0;
+
+    const int idx0 = m.pos.y * BOARD_SIZE + m.pos.x;
+    for (int d = 0; d < 4; ++d) {
+        const auto& ray = capRaysByDir[d][idx0];
+
+        // fwd: .. OP, OP, ME -> capture
+        if (ray.fwd[2] != 0xFFFF && cells[ray.fwd[0]] == OP && cells[ray.fwd[1]] == OP && cells[ray.fwd[2]] == ME) {
+            capturedIdx[captured_n++] = ray.fwd[0];
+            capturedIdx[captured_n++] = ray.fwd[1];
         }
+        // bwd: ME, OP, OP .. -> capture
+        if (ray.bwd[2] != 0xFFFF && cells[ray.bwd[0]] == OP && cells[ray.bwd[1]] == OP && cells[ray.bwd[2]] == ME) {
+            capturedIdx[captured_n++] = ray.bwd[0];
+            capturedIdx[captured_n++] = ray.bwd[1];
+        }
+    }
+
+    auto isVirtuallyCaptured = [&](uint16_t idx) noexcept {
+        for (int i = 0; i < captured_n; ++i)
+            if (capturedIdx[i] == idx)
+                return true;
         return false;
     };
 
-    auto vAt = [&](int x, int y) -> Cell {
-        if (x < 0 || y < 0 || x >= BOARD_SIZE || y >= BOARD_SIZE)
+    auto vAt = [&](int x, int y) noexcept -> Cell {
+        if ((unsigned)x >= BOARD_SIZE || (unsigned)y >= BOARD_SIZE)
             return OP; // mur = adversaire
-        if ((int)m.pos.x == x && (int)m.pos.y == y)
-            return ME;
-        if (capturedVirt(x, y))
-            return Cell::Empty;
-        return at(static_cast<uint8_t>(x), static_cast<uint8_t>(y));
+        const uint16_t idx = static_cast<uint16_t>(y * BOARD_SIZE + x);
+        if (idx == idx0)
+            return ME; // pierre qu'on pose
+        if (isVirtuallyCaptured(idx))
+            return Cell::Empty; // retirée virtuellement
+        return cells[idx];
     };
 
-    auto hasThreeInLine = [&](int dx, int dy) -> bool {
-        std::string s;
-        s.reserve(11);
-        for (int k = -5; k <= 5; ++k) {
-            int x = (int)m.pos.x + k * dx;
-            int y = (int)m.pos.y + k * dy;
+    // Teste des motifs autour de (0) sans construire de buffer :
+    // on lit seulement les cases nécessaires pour les gabarits centrés.
+    auto hasThreeInLine = [&](int dx, int dy) noexcept -> bool {
+        // On code: 0=vide, 1=ME, 2=OP (mur compte comme OP via vAt)
+        int C[9]; // offsets -4..+4
+        for (int off = -4, i = 0; off <= 4; ++off, ++i) {
+            const int x = (int)m.pos.x + off * dx;
+            const int y = (int)m.pos.y + off * dy;
             Cell c = vAt(x, y);
-            char ch = (c == Cell::Empty) ? '0' : (c == ME ? '1' : '2');
-            s.push_back(ch);
+            C[i] = (c == Cell::Empty) ? 0 : (c == ME ? 1 : 2);
         }
-        auto contains = [&](const std::string& pat) -> bool {
-            return s.find(pat) != std::string::npos;
-        };
-        if (contains("01110"))
-            return true; // 0 111 0
-        if (contains("010110"))
-            return true; // 0 1 0 11 0
-        if (contains("011010"))
-            return true; // 0 11 0 1 0
+        auto Z = [&](int k) noexcept { return C[k + 4] == 0; }; // empty at offset k
+        auto O = [&](int k) noexcept { return C[k + 4] == 1; }; // ME at offset k
+        // NB: offset 0 est toujours O(0) par construction
+
+        // --- "01110" (open three) : centre dans {gauche, milieu, droite} du trio ---
+        if (Z(-1) && O(0) && O(+1) && O(+2) && Z(+3))
+            return true; // centre = 1er du trio
+        if (Z(-2) && O(-1) && O(0) && O(+1) && Z(+2))
+            return true; // centre = milieu
+        if (Z(-3) && O(-2) && O(-1) && O(0) && Z(+1))
+            return true; // centre = 3e du trio
+
+        // --- "010110" ---
+        if (Z(-1) && O(0) && Z(+1) && O(+2) && O(+3) && Z(+4))
+            return true; // centre index 1
+        if (Z(-3) && O(-2) && Z(-1) && O(0) && O(+1) && Z(+2))
+            return true; // centre index 3
+        if (Z(-4) && O(-3) && O(-2) && Z(-1) && O(0) && Z(+1))
+            return true; // centre index 4
+
+        // --- "011010" ---
+        if (Z(-1) && O(0) && O(+1) && Z(+2) && O(+3) && Z(+4))
+            return true; // centre index 1
+        if (Z(-2) && O(-1) && O(0) && Z(+1) && O(+2) && Z(+3))
+            return true; // centre index 2
+        if (Z(-4) && O(-3) && O(-2) && Z(-1) && O(0) && Z(+1))
+            return true; // centre index 4 (même masque que ci-dessus pour certains cas)
+
         return false;
     };
 
     int threes = 0;
-    if (hasThreeInLine(1, 0))
-        ++threes;
-    if (hasThreeInLine(0, 1))
-        ++threes;
-    if (hasThreeInLine(1, 1))
-        ++threes;
-    if (hasThreeInLine(1, -1))
-        ++threes;
+    if (hasThreeInLine(1, 0) && ++threes == 2)
+        return true;
+    if (hasThreeInLine(0, 1) && ++threes == 2)
+        return true;
+    if (hasThreeInLine(1, 1) && ++threes == 2)
+        return true;
+    if (hasThreeInLine(1, -1) && ++threes == 2)
+        return true;
 
-    return threes >= 2;
+    return false;
 }
 
 // ------------------------------------------------
