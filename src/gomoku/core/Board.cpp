@@ -6,8 +6,6 @@
 
 namespace gomoku {
 
-// Note: cellOf and other are now available as playerToCell and opponent in Types.hpp
-
 // ------------------ Zobrist ------------------
 namespace {
     std::array<uint64_t, 2 * BOARD_SIZE * BOARD_SIZE> Z_PCS {};
@@ -34,6 +32,45 @@ namespace {
     } ZINIT;
 }
 // ------------------------------------------------
+
+namespace {
+    struct CapRay {
+        uint16_t fwd[3] {};
+        uint16_t bwd[3] {};
+    };
+
+    // encode position -> index, ou 0xFFFF si hors plateau
+    constexpr uint16_t encode(int x, int y)
+    {
+        return (unsigned)x < BOARD_SIZE && (unsigned)y < BOARD_SIZE
+            ? static_cast<uint16_t>(y * BOARD_SIZE + x)
+            : static_cast<uint16_t>(0xFFFF);
+    }
+
+    constexpr std::array<std::array<CapRay, BOARD_SIZE * BOARD_SIZE>, 4> makeCapRays()
+    {
+        std::array<std::array<CapRay, BOARD_SIZE * BOARD_SIZE>, 4> rays {};
+
+        constexpr int DX[4] = { 1, 0, 1, 1 };
+        constexpr int DY[4] = { 0, 1, 1, -1 };
+
+        for (int y = 0; y < BOARD_SIZE; ++y) {
+            for (int x = 0; x < BOARD_SIZE; ++x) {
+                const int i = y * BOARD_SIZE + x;
+                for (int d = 0; d < 4; ++d) {
+                    for (int k = 1; k <= 3; ++k) {
+                        rays[d][i].fwd[k - 1] = encode(x + k * DX[d], y + k * DY[d]);
+                        rays[d][i].bwd[k - 1] = encode(x - k * DX[d], y - k * DY[d]);
+                    }
+                }
+            }
+        }
+        return rays;
+    }
+
+    // Table calculée à la compilation
+    constexpr auto capRaysByDir = makeCapRays();
+}
 
 Board::Board() { reset(); }
 
@@ -645,26 +682,23 @@ bool Board::isBoardFull() const
 }
 
 // Détecte si m provoquerait une capture XOOX (±4 directions)
-bool Board::wouldCapture(Move m) const
+inline bool Board::wouldCapture(Move m) const noexcept
 {
     const Cell me = playerToCell(m.by);
     const Cell opp = (me == Cell::Black ? Cell::White : Cell::Black);
-    static constexpr int DX[4] = { 1, 0, 1, 1 };
-    static constexpr int DY[4] = { 0, 1, 1, -1 };
-
-    auto inside = [&](int X, int Y) { return 0 <= X && X < BOARD_SIZE && 0 <= Y && Y < BOARD_SIZE; };
+    const uint16_t i = idx(m.pos.x, m.pos.y);
 
     for (int d = 0; d < 4; ++d) {
-        int x1 = m.pos.x + DX[d], y1 = m.pos.y + DY[d];
-        int x2 = m.pos.x + 2 * DX[d], y2 = m.pos.y + 2 * DY[d];
-        int x3 = m.pos.x + 3 * DX[d], y3 = m.pos.y + 3 * DY[d];
-        if (inside(x1, y1) && inside(x2, y2) && inside(x3, y3) && at(static_cast<uint8_t>(x1), static_cast<uint8_t>(y1)) == opp && at(static_cast<uint8_t>(x2), static_cast<uint8_t>(y2)) == opp && at(static_cast<uint8_t>(x3), static_cast<uint8_t>(y3)) == me)
+        const auto& R = capRaysByDir[d][i];
+
+        // forward: me, opp, opp, me
+        uint16_t a1 = R.fwd[0], a2 = R.fwd[1], a3 = R.fwd[2];
+        if (a3 != 0xFFFF && cells[a3] == me && cells[a1] == opp && cells[a2] == opp)
             return true;
 
-        int X1 = m.pos.x - DX[d], Y1 = m.pos.y - DY[d];
-        int X2 = m.pos.x - 2 * DX[d], Y2 = m.pos.y - 2 * DY[d];
-        int X3 = m.pos.x - 3 * DX[d], Y3 = m.pos.y - 3 * DY[d];
-        if (inside(X1, Y1) && inside(X2, Y2) && inside(X3, Y3) && at(static_cast<uint8_t>(X1), static_cast<uint8_t>(Y1)) == opp && at(static_cast<uint8_t>(X2), static_cast<uint8_t>(Y2)) == opp && at(static_cast<uint8_t>(X3), static_cast<uint8_t>(Y3)) == me)
+        // backward: me, opp, opp, me
+        uint16_t b1 = R.bwd[0], b2 = R.bwd[1], b3 = R.bwd[2];
+        if (b3 != 0xFFFF && cells[b3] == me && cells[b1] == opp && cells[b2] == opp)
             return true;
     }
     return false;
