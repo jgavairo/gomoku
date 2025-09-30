@@ -1,5 +1,5 @@
-#include "util/Logger.hpp"
 #include "gui/GameWindow.hpp"
+#include "util/Logger.hpp"
 
 int main()
 {

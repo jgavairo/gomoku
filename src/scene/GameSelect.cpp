@@ -1,6 +1,6 @@
 #include "scene/GameSelect.hpp"
-#include "util/Logger.hpp"
 #include "audio/Volumes.hpp"
+#include "util/Logger.hpp"
 
 namespace gomoku::scene {
 
