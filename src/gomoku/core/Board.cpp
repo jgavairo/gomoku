@@ -675,10 +675,7 @@ void Board::forceSide(Player p)
 
 bool Board::isBoardFull() const
 {
-    for (const auto& c : cells)
-        if (c == Cell::Empty)
-            return false;
-    return true;
+    return (blackStones + whiteStones) == N;
 }
 
 // Détecte si m provoquerait une capture XOOX (±4 directions)
@@ -691,14 +688,10 @@ inline bool Board::wouldCapture(Move m) const noexcept
     for (int d = 0; d < 4; ++d) {
         const auto& R = capRaysByDir[d][i];
 
-        // forward: me, opp, opp, me
-        uint16_t a1 = R.fwd[0], a2 = R.fwd[1], a3 = R.fwd[2];
-        if (a3 != 0xFFFF && cells[a3] == me && cells[a1] == opp && cells[a2] == opp)
+        if (R.fwd[2] != 0xFFFF && cells[R.fwd[2]] == me && cells[R.fwd[0]] == opp && cells[R.fwd[1]] == opp)
             return true;
 
-        // backward: me, opp, opp, me
-        uint16_t b1 = R.bwd[0], b2 = R.bwd[1], b3 = R.bwd[2];
-        if (b3 != 0xFFFF && cells[b3] == me && cells[b1] == opp && cells[b2] == opp)
+        if (R.bwd[2] != 0xFFFF && cells[R.bwd[2]] == me && cells[R.bwd[0]] == opp && cells[R.bwd[1]] == opp)
             return true;
     }
     return false;
