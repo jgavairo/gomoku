@@ -1,4 +1,4 @@
-#include "gomoku/core/Logger.hpp"
+#include "util/Logger.hpp"
 #include "gui/GameWindow.hpp"
 
 int main()

@@ -1,5 +1,5 @@
-// gomoku/core/Logger.cpp
-#include "gomoku/core/Logger.hpp"
+// util/Logger.cpp
+#include "util/Logger.hpp"
 #include <cstdlib>
 #include <cstring>
 #include <iostream>

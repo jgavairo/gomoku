@@ -1,6 +1,6 @@
 // gomoku/ai/CandidateGenerator.cpp
 #include "gomoku/ai/CandidateGenerator.hpp"
-#include "gomoku/core/Logger.hpp"
+#include "util/Logger.hpp"
 #include <algorithm>
 #include <array>
 #include <bitset>

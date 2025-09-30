@@ -1,7 +1,7 @@
 // gomoku/ai/CandidateGenerator.hpp
 #pragma once
 #include "gomoku/core/Board.hpp"
-#include "gomoku/core/Logger.hpp"
+#include "util/Logger.hpp"
 #include "gomoku/core/Types.hpp"
 #include <cstdint>
 #include <vector>

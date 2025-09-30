@@ -1,4 +1,4 @@
-// gomoku/core/Logger.hpp
+// util/Logger.hpp
 #pragma once
 
 #include <chrono>

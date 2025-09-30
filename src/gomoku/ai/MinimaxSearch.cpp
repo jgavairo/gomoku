@@ -2,7 +2,7 @@
 #include "gomoku/ai/MinimaxSearch.hpp"
 #include "gomoku/ai/CandidateGenerator.hpp"
 #include "gomoku/core/Board.hpp"
-#include "gomoku/core/Logger.hpp"
+#include "util/Logger.hpp"
 #include <algorithm>
 #include <functional>
 #include <limits>

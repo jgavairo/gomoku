@@ -1,5 +1,5 @@
 #include "scene/GameSelect.hpp"
-#include "gomoku/core/Logger.hpp"
+#include "util/Logger.hpp"
 #include "audio/Volumes.hpp"
 
 namespace gomoku::scene {
