@@ -1,4 +1,5 @@
 #include "gomoku/core/Board.hpp"
+#include "gomoku/core/Zobrist.hpp"
 #include <array>
 #include <cassert>
 #include <random>
@@ -6,31 +7,9 @@
 
 namespace gomoku {
 
-// ------------------ Zobrist ------------------
-namespace {
-    std::array<uint64_t, 2 * BOARD_SIZE * BOARD_SIZE> Z_PCS {};
-    uint64_t Z_SIDE = 0;
-
-    inline int flat(int x, int y) { return y * BOARD_SIZE + x; }
-    inline uint64_t z_of(Cell c, int x, int y)
-    {
-        if (c == Cell::Black)
-            return Z_PCS[0 * BOARD_SIZE * BOARD_SIZE + flat(x, y)];
-        if (c == Cell::White)
-            return Z_PCS[1 * BOARD_SIZE * BOARD_SIZE + flat(x, y)];
-        return 0ull;
-    }
-
-    struct ZInit {
-        ZInit()
-        {
-            std::mt19937_64 rng(0x9E3779B97F4A7C15ULL); // seed fixe (reproductible)
-            for (auto& v : Z_PCS)
-                v = rng();
-            Z_SIDE = rng();
-        }
-    } ZINIT;
-}
+// ------------------ Zobrist via dedicated module ------------------
+using gomoku::zobrist::piece;
+using gomoku::zobrist::side;
 // ------------------------------------------------
 
 namespace {
@@ -133,7 +112,7 @@ void Board::reset()
     // Zobrist
     zobristHash = 0ull;
     // Encode le trait (Black to move)
-    zobristHash ^= Z_SIDE;
+    zobristHash ^= side();
 }
 
 // ------------------------------------------------
@@ -370,7 +349,7 @@ PlayResult Board::applyCore(Move m, const RuleSet& rules, bool record)
     }
 
     cells[idx(m.pos.x, m.pos.y)] = playerToCell(m.by);
-    zobristHash ^= z_of(playerToCell(m.by), m.pos.x, m.pos.y);
+    zobristHash ^= piece(playerToCell(m.by), m.pos.x, m.pos.y);
     // Track stone counts
     if (m.by == Player::Black)
         ++blackStones;
@@ -393,7 +372,7 @@ PlayResult Board::applyCore(Move m, const RuleSet& rules, bool record)
             whitePairs += gained;
         Cell oppC = (m.by == Player::Black ? Cell::White : Cell::Black);
         for (auto rp : capVec) {
-            zobristHash ^= z_of(oppC, rp.x, rp.y);
+            zobristHash ^= piece(oppC, rp.x, rp.y);
             // Decrement opponent stone counts for captured stones
             if (oppC == Cell::Black)
                 --blackStones;
@@ -433,7 +412,7 @@ PlayResult Board::applyCore(Move m, const RuleSet& rules, bool record)
         moveHistory.push_back(std::move(u));
     }
     currentPlayer = opponent(currentPlayer);
-    zobristHash ^= Z_SIDE;
+    zobristHash ^= side();
 
     return PlayResult::ok();
 }
@@ -543,12 +522,12 @@ bool Board::undo()
     moveHistory.pop_back();
 
     // Zobrist: le trait redevient celui d'avant
-    zobristHash ^= Z_SIDE;
+    zobristHash ^= side();
 
     // Retirer la pierre jouée
     cells[idx(u.move.pos.x, u.move.pos.y)] = Cell::Empty;
     // Zobrist: retirer la pierre annulée
-    zobristHash ^= z_of(playerToCell(u.move.by), u.move.pos.x, u.move.pos.y);
+    zobristHash ^= piece(playerToCell(u.move.by), u.move.pos.x, u.move.pos.y);
     // Update stone count for removed stone
     if (u.move.by == Player::Black)
         --blackStones;
@@ -575,7 +554,7 @@ bool Board::undo()
     for (auto rp : u.capturedStones) {
         cells[idx(rp.x, rp.y)] = oppC;
         // Zobrist: remettre les capturées
-        zobristHash ^= z_of(oppC, rp.x, rp.y);
+        zobristHash ^= piece(oppC, rp.x, rp.y);
         if (oppC == Cell::Black)
             ++blackStones;
         else
@@ -734,7 +713,7 @@ void Board::forceSide(Player p)
     if (currentPlayer != p) {
         currentPlayer = p;
         // Maintenir la clé Zobrist alignée avec "side to move"
-        zobristHash ^= Z_SIDE;
+        zobristHash ^= side();
     }
 }
 
