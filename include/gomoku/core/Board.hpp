@@ -1,6 +1,7 @@
 #pragma once
 // Concrete board implementation backing the core game logic (libgomoku_logic.a)
 #include "gomoku/core/BoardState.hpp"
+#include "gomoku/core/CaptureEngine.hpp"
 #include "gomoku/core/Types.hpp"
 #include "gomoku/interfaces/IBoardView.hpp"
 #include <array>
@@ -41,6 +42,7 @@ public:
     std::vector<Move> lastMoves(std::size_t k) const;
 
     PlayResult tryPlay(Move m, const RuleSet& rules);
+    bool wouldCapture(Move m) const { return capture::wouldCapture(state, m); }
     bool undo();
 
     bool speculativeTry(Move m, const RuleSet& rules, PlayResult* out);
