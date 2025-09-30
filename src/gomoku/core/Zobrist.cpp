@@ -5,31 +5,34 @@
 namespace gomoku::zobrist {
 
 namespace {
-    std::array<uint64_t, 2 * BOARD_SIZE * BOARD_SIZE> Z_PCS {};
+    constexpr std::size_t S = static_cast<std::size_t>(BOARD_SIZE) * BOARD_SIZE;
+    std::array<uint64_t, 2 * S> Z_PCS {};
     uint64_t Z_SIDE = 0;
 
-    inline int flat(int x, int y) { return y * BOARD_SIZE + x; }
+    void do_seed(uint64_t seed) noexcept
+    {
+        std::mt19937_64 rng(seed); // reproductible
+        for (auto& v : Z_PCS)
+            v = rng();
+        Z_SIDE = rng();
+    }
 
     struct ZInit {
-        ZInit()
-        {
-            std::mt19937_64 rng(0x9E3779B97F4A7C15ULL); // fixed seed for reproducibility
-            for (auto& v : Z_PCS)
-                v = rng();
-            Z_SIDE = rng();
-        }
+        ZInit() { do_seed(0x9E3779B97F4A7C15ULL); }
     } ZINIT;
 }
 
-uint64_t piece(Cell c, uint8_t x, uint8_t y) noexcept
+uint64_t piece(Cell c, FlatIdx idx) noexcept
 {
-    if (c == Cell::Black)
-        return Z_PCS[0 * BOARD_SIZE * BOARD_SIZE + flat(x, y)];
-    if (c == Cell::White)
-        return Z_PCS[1 * BOARD_SIZE * BOARD_SIZE + flat(x, y)];
-    return 0ull;
+    // Empty -> 0
+    if (c == Cell::Empty)
+        return 0ull;
+    const std::size_t color = (c == Cell::White) ? 1 : 0;
+    return Z_PCS[color * S + idx];
 }
 
 uint64_t side() noexcept { return Z_SIDE; }
+
+void reseed(uint64_t seed) noexcept { do_seed(seed); }
 
 } // namespace gomoku::zobrist
