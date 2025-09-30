@@ -76,7 +76,6 @@ private:
     // --- Règles / détections ---
     bool createsIllegalDoubleThree(Move m, const RuleSet& rules) const;
     bool checkFiveOrMoreFrom(Pos p, Cell who) const;
-    int applyCapturesAround(Pos p, Cell who, const RuleSet& rules, std::vector<Pos>& removed);
 
     bool hasAnyFive(Cell who) const;
     bool isFiveBreakableNow(Player justPlayed, const RuleSet& rules) const;
@@ -84,7 +83,7 @@ private:
     // Facteur interne : logique partagée d'application. Si record=true, pousse UndoEntry.
     PlayResult applyCore(Move m, const RuleSet& rules, bool record);
 
-    bool wouldCapture(Move m) const noexcept;
+    // capture logic moved to CaptureEngine (free functions)
 };
 
 } // namespace gomoku

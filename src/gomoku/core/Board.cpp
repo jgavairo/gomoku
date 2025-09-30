@@ -1,4 +1,5 @@
 #include "gomoku/core/Board.hpp"
+#include "gomoku/core/CaptureEngine.hpp"
 #include "gomoku/core/Zobrist.hpp"
 #include <array>
 #include <cassert>
@@ -115,7 +116,7 @@ bool Board::createsIllegalDoubleThree(Move m, const RuleSet& rules) const
         return false;
 
     // Exception : un coup capturant est autorisé même s'il crée un double-trois
-    if (rules.capturesEnabled && wouldCapture(m))
+    if (rules.capturesEnabled && capture::wouldCapture(state, m))
         return false;
 
     const Cell ME = playerToCell(m.by);
@@ -243,41 +244,7 @@ bool Board::checkFiveOrMoreFrom(Pos p, Cell who) const
 
 // ------------------------------------------------
 // Captures XOOX dans 4 directions et 2 sens
-int Board::applyCapturesAround(Pos p, Cell who, const RuleSet& rules, std::vector<Pos>& removed)
-{
-    if (!rules.capturesEnabled)
-        return 0;
-
-    static constexpr int DX[4] = { 1, 0, 1, 1 };
-    static constexpr int DY[4] = { 0, 1, 1, -1 };
-
-    const Cell opp = (who == Cell::Black ? Cell::White : Cell::Black);
-    int pairs = 0;
-
-    auto tryDir = [&](int sx, int sy, int dx, int dy) -> bool {
-        int x1 = sx + dx, y1 = sy + dy;
-        int x2 = sx + 2 * dx, y2 = sy + 2 * dy;
-        int x3 = sx + 3 * dx, y3 = sy + 3 * dy;
-        if (!isInside(static_cast<uint8_t>(x3), static_cast<uint8_t>(y3)))
-            return false;
-        if (at(static_cast<uint8_t>(x1), static_cast<uint8_t>(y1)) == opp && at(static_cast<uint8_t>(x2), static_cast<uint8_t>(y2)) == opp && at(static_cast<uint8_t>(x3), static_cast<uint8_t>(y3)) == who) {
-            state.clearCell(static_cast<uint8_t>(x1), static_cast<uint8_t>(y1));
-            state.clearCell(static_cast<uint8_t>(x2), static_cast<uint8_t>(y2));
-            removed.push_back({ (uint8_t)x1, (uint8_t)y1 });
-            removed.push_back({ (uint8_t)x2, (uint8_t)y2 });
-            return true;
-        }
-        return false;
-    };
-
-    for (int d = 0; d < 4; ++d) {
-        if (tryDir(p.x, p.y, DX[d], DY[d]))
-            ++pairs; // sens +
-        if (tryDir(p.x, p.y, -DX[d], -DY[d]))
-            ++pairs; // sens -
-    }
-    return pairs;
-}
+// applyCapturesAround moved to CaptureEngine
 
 // ------------------------------------------------
 PlayResult Board::applyCore(Move m, const RuleSet& rules, bool record)
@@ -302,13 +269,13 @@ PlayResult Board::applyCore(Move m, const RuleSet& rules, bool record)
 
     bool allowDoubleThreeThisMove = false;
     if (mustBreak) {
-        if (!wouldCapture(m)) {
+        if (!capture::wouldCapture(state, m)) {
             return PlayResult::fail(PlayErrorCode::RuleViolation, "Must break opponent's five.");
         }
         Board sim = *this;
         sim.state.setCell(m.pos.x, m.pos.y, playerToCell(m.by));
         std::vector<Pos> removedTmp;
-        int gainedTmp = sim.applyCapturesAround(m.pos, playerToCell(m.by), rules, removedTmp);
+        int gainedTmp = capture::applyCapturesAround(sim.state, m.pos, playerToCell(m.by), rules, removedTmp);
         if (gainedTmp) {
             if (m.by == Player::Black)
                 sim.state.blackPairs += gainedTmp;
@@ -344,16 +311,12 @@ PlayResult Board::applyCore(Move m, const RuleSet& rules, bool record)
 
     std::vector<Pos> capturedLocal; // utilisera u.capturedStones si record
     auto& capVec = record ? u.capturedStones : capturedLocal;
-    int gained = applyCapturesAround(m.pos, playerToCell(m.by), rules, capVec);
+    int gained = capture::applyCapturesAround(state, m.pos, playerToCell(m.by), rules, capVec);
     if (gained) {
         if (m.by == Player::Black)
             state.blackPairs += gained;
         else
             state.whitePairs += gained;
-        for (auto rp : capVec) {
-            // remove captured: clear already done by applyCapturesAround; ensure occupied_ updated
-            state.removeStone(rp);
-        }
     }
 
     if (rules.allowFiveOrMore && checkFiveOrMoreFrom(m.pos, playerToCell(m.by))) {
@@ -603,24 +566,21 @@ bool Board::isFiveBreakableNow(Player justPlayed, const RuleSet& rules) const
 
     for (const auto& pos : cand) {
         Move mv { pos, opp };
-        if (!base.wouldCapture(mv))
+        if (!capture::wouldCapture(base.state, mv))
             continue; // only capturing moves can break immediately
 
         Board sim = base;
         // place the stone and apply captures
         sim.state.placeStone(mv.pos, playerToCell(opp));
         std::vector<Pos> removed;
-        int gained = sim.applyCapturesAround(mv.pos, playerToCell(opp), rules, removed);
+        int gained = capture::applyCapturesAround(sim.state, mv.pos, playerToCell(opp), rules, removed);
         if (gained) {
             if (opp == Player::Black)
                 sim.state.blackPairs += gained;
             else
                 sim.state.whitePairs += gained;
         }
-        // sync occupancy for captured stones
-        for (auto rp : removed) {
-            sim.state.removeStone(rp);
-        }
+        // occupancy for captured stones already updated by applyCapturesAround
 
         int oppPairsAfter = (opp == Player::Black ? sim.state.blackPairs : sim.state.whitePairs);
         if (oppPairsAfter >= rules.captureWinPairs)
@@ -646,22 +606,6 @@ bool Board::isBoardFull() const
 }
 
 // Détecte si m provoquerait une capture XOOX (±4 directions)
-bool Board::wouldCapture(Move m) const noexcept
-{
-    const Cell me = playerToCell(m.by);
-    const Cell opp = (me == Cell::Black ? Cell::White : Cell::Black);
-    const uint16_t i = idx(m.pos.x, m.pos.y);
-
-    for (int d = 0; d < 4; ++d) {
-        const auto& R = capRaysByDir[d][i];
-
-        if (R.fwd[2] != 0xFFFF && state.cells[R.fwd[2]] == me && state.cells[R.fwd[0]] == opp && state.cells[R.fwd[1]] == opp)
-            return true;
-
-        if (R.bwd[2] != 0xFFFF && state.cells[R.bwd[2]] == me && state.cells[R.bwd[0]] == opp && state.cells[R.bwd[1]] == opp)
-            return true;
-    }
-    return false;
-}
+// wouldCapture moved to CaptureEngine
 
 } // namespace gomoku
