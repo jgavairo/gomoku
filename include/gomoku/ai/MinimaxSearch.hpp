@@ -131,7 +131,6 @@ private:
         std::optional<Move>& best,
         int& bestScore,
         std::vector<Move>& pv,
-        long long& nodes,
         const SearchContext& ctx);
 
     SearchConfig cfg {};
