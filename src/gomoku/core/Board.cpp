@@ -63,18 +63,18 @@ Cell Board::at(uint8_t x, uint8_t y) const
 {
     if (!isInside(x, y))
         return Cell::Empty;
-    return cells[idx(x, y)];
+    return state.cells[idx(x, y)];
 }
 
 Player Board::toPlay() const { return currentPlayer; }
-CaptureCount Board::capturedPairs() const { return { blackPairs, whitePairs }; }
+CaptureCount Board::capturedPairs() const { return { state.blackPairs, state.whitePairs }; }
 GameStatus Board::status() const { return gameState; }
-uint64_t Board::zobristKey() const { return zobristHash; }
+uint64_t Board::zobristKey() const { return state.zobristHash; }
 
 bool Board::isInside(uint8_t x, uint8_t y) const { return x < BOARD_SIZE && y < BOARD_SIZE; }
-bool Board::isEmpty(uint8_t x, uint8_t y) const { return isInside(x, y) && cells[idx(x, y)] == Cell::Empty; }
+bool Board::isEmpty(uint8_t x, uint8_t y) const { return isInside(x, y) && state.cells[idx(x, y)] == Cell::Empty; }
 
-int Board::stoneCount(Player p) const { return (p == Player::Black) ? blackStones : whiteStones; }
+int Board::stoneCount(Player p) const { return (p == Player::Black) ? state.blackStones : state.whiteStones; }
 
 std::optional<Move> Board::lastMove() const
 {
@@ -96,23 +96,15 @@ std::vector<Move> Board::lastMoves(std::size_t k) const
     return out;
 }
 
-const std::vector<Pos>& Board::occupiedPositions() const { return occupied_; }
+const std::vector<Pos>& Board::occupiedPositions() const { return state.occupied_; }
 
 void Board::reset()
 {
-    cells.fill(Cell::Empty);
+    state.reset(true);
     currentPlayer = Player::Black;
-    blackPairs = whitePairs = 0;
-    blackStones = whiteStones = 0;
     gameState = GameStatus::Ongoing;
     moveHistory.clear();
-    occupied_.clear();
-    occIdx_.fill(-1);
-
-    // Zobrist
-    zobristHash = 0ull;
-    // Encode le trait (Black to move)
-    zobristHash ^= side();
+    // Side encoded in state.reset(true)
 }
 
 // ------------------------------------------------
@@ -138,12 +130,12 @@ bool Board::createsIllegalDoubleThree(Move m, const RuleSet& rules) const
         const auto& ray = capRaysByDir[d][idx0];
 
         // fwd: .. OP, OP, ME -> capture
-        if (ray.fwd[2] != 0xFFFF && cells[ray.fwd[0]] == OP && cells[ray.fwd[1]] == OP && cells[ray.fwd[2]] == ME) {
+        if (ray.fwd[2] != 0xFFFF && state.cells[ray.fwd[0]] == OP && state.cells[ray.fwd[1]] == OP && state.cells[ray.fwd[2]] == ME) {
             capturedIdx[captured_n++] = ray.fwd[0];
             capturedIdx[captured_n++] = ray.fwd[1];
         }
         // bwd: ME, OP, OP .. -> capture
-        if (ray.bwd[2] != 0xFFFF && cells[ray.bwd[0]] == OP && cells[ray.bwd[1]] == OP && cells[ray.bwd[2]] == ME) {
+        if (ray.bwd[2] != 0xFFFF && state.cells[ray.bwd[0]] == OP && state.cells[ray.bwd[1]] == OP && state.cells[ray.bwd[2]] == ME) {
             capturedIdx[captured_n++] = ray.bwd[0];
             capturedIdx[captured_n++] = ray.bwd[1];
         }
@@ -164,7 +156,7 @@ bool Board::createsIllegalDoubleThree(Move m, const RuleSet& rules) const
             return ME; // pierre qu'on pose
         if (isVirtuallyCaptured(idx))
             return Cell::Empty; // retirée virtuellement
-        return cells[idx];
+        return state.cells[idx];
     };
 
     // Teste des motifs autour de (0) sans construire de buffer :
@@ -269,8 +261,8 @@ int Board::applyCapturesAround(Pos p, Cell who, const RuleSet& rules, std::vecto
         if (!isInside(static_cast<uint8_t>(x3), static_cast<uint8_t>(y3)))
             return false;
         if (at(static_cast<uint8_t>(x1), static_cast<uint8_t>(y1)) == opp && at(static_cast<uint8_t>(x2), static_cast<uint8_t>(y2)) == opp && at(static_cast<uint8_t>(x3), static_cast<uint8_t>(y3)) == who) {
-            cells[idx(static_cast<uint8_t>(x1), static_cast<uint8_t>(y1))] = Cell::Empty;
-            cells[idx(static_cast<uint8_t>(x2), static_cast<uint8_t>(y2))] = Cell::Empty;
+            state.clearCell(static_cast<uint8_t>(x1), static_cast<uint8_t>(y1));
+            state.clearCell(static_cast<uint8_t>(x2), static_cast<uint8_t>(y2));
             removed.push_back({ (uint8_t)x1, (uint8_t)y1 });
             removed.push_back({ (uint8_t)x2, (uint8_t)y2 });
             return true;
@@ -314,16 +306,16 @@ PlayResult Board::applyCore(Move m, const RuleSet& rules, bool record)
             return PlayResult::fail(PlayErrorCode::RuleViolation, "Must break opponent's five.");
         }
         Board sim = *this;
-        sim.cells[idx(m.pos.x, m.pos.y)] = playerToCell(m.by);
+        sim.state.setCell(m.pos.x, m.pos.y, playerToCell(m.by));
         std::vector<Pos> removedTmp;
         int gainedTmp = sim.applyCapturesAround(m.pos, playerToCell(m.by), rules, removedTmp);
         if (gainedTmp) {
             if (m.by == Player::Black)
-                sim.blackPairs += gainedTmp;
+                sim.state.blackPairs += gainedTmp;
             else
-                sim.whitePairs += gainedTmp;
+                sim.state.whitePairs += gainedTmp;
         }
-        int myPairsAfter = (m.by == Player::Black ? sim.blackPairs : sim.whitePairs);
+        int myPairsAfter = (m.by == Player::Black ? sim.state.blackPairs : sim.state.whitePairs);
         Cell oppFiveColor = playerToCell(opponent(currentPlayer));
         bool breaks = (myPairsAfter >= rules.captureWinPairs) || (!sim.hasAnyFive(oppFiveColor));
         if (!breaks) {
@@ -340,57 +332,27 @@ PlayResult Board::applyCore(Move m, const RuleSet& rules, bool record)
     UndoEntry u;
     if (record) {
         u.move = m;
-        u.blackPairsBefore = blackPairs;
-        u.whitePairsBefore = whitePairs;
-        u.blackStonesBefore = blackStones;
-        u.whiteStonesBefore = whiteStones;
+        u.blackPairsBefore = state.blackPairs;
+        u.whitePairsBefore = state.whitePairs;
+        u.blackStonesBefore = state.blackStones;
+        u.whiteStonesBefore = state.whiteStones;
         u.stateBefore = gameState;
         u.playerBefore = currentPlayer;
     }
 
-    cells[idx(m.pos.x, m.pos.y)] = playerToCell(m.by);
-    zobristHash ^= piece(playerToCell(m.by), m.pos.x, m.pos.y);
-    // Track stone counts
-    if (m.by == Player::Black)
-        ++blackStones;
-    else
-        ++whiteStones;
-    // Sparse index add
-    {
-        const int id = idx(m.pos.x, m.pos.y);
-        occIdx_[id] = static_cast<int16_t>(occupied_.size());
-        occupied_.push_back(m.pos);
-    }
+    state.placeStone(m.pos, playerToCell(m.by));
 
     std::vector<Pos> capturedLocal; // utilisera u.capturedStones si record
     auto& capVec = record ? u.capturedStones : capturedLocal;
     int gained = applyCapturesAround(m.pos, playerToCell(m.by), rules, capVec);
     if (gained) {
         if (m.by == Player::Black)
-            blackPairs += gained;
+            state.blackPairs += gained;
         else
-            whitePairs += gained;
-        Cell oppC = (m.by == Player::Black ? Cell::White : Cell::Black);
+            state.whitePairs += gained;
         for (auto rp : capVec) {
-            zobristHash ^= piece(oppC, rp.x, rp.y);
-            // Decrement opponent stone counts for captured stones
-            if (oppC == Cell::Black)
-                --blackStones;
-            else
-                --whiteStones;
-            // Sparse index remove via swap-pop
-            const int id = idx(rp.x, rp.y);
-            int16_t posIdx = occIdx_[id];
-            if (posIdx >= 0) {
-                const int lastIdx = static_cast<int>(occupied_.size()) - 1;
-                if (posIdx != lastIdx) {
-                    Pos moved = occupied_.back();
-                    occupied_[posIdx] = moved;
-                    occIdx_[moved.toIndex()] = posIdx;
-                }
-                occupied_.pop_back();
-                occIdx_[id] = -1;
-            }
+            // remove captured: clear already done by applyCapturesAround; ensure occupied_ updated
+            state.removeStone(rp);
         }
     }
 
@@ -401,7 +363,7 @@ PlayResult Board::applyCore(Move m, const RuleSet& rules, bool record)
     }
 
     if (rules.capturesEnabled && gameState == GameStatus::Ongoing) {
-        if (blackPairs >= rules.captureWinPairs || whitePairs >= rules.captureWinPairs)
+        if (state.blackPairs >= rules.captureWinPairs || state.whitePairs >= rules.captureWinPairs)
             gameState = GameStatus::WinByCapture;
     }
 
@@ -412,7 +374,7 @@ PlayResult Board::applyCore(Move m, const RuleSet& rules, bool record)
         moveHistory.push_back(std::move(u));
     }
     currentPlayer = opponent(currentPlayer);
-    zobristHash ^= side();
+    state.flipSide();
 
     return PlayResult::ok();
 }
@@ -429,20 +391,18 @@ bool Board::speculativeTry(Move m, const RuleSet& rules, PlayResult* out)
     // - hash, joueur courant, compteurs captures, statut
     // - contenu des cellules susceptibles de changer (la case jouée + jusqu'à 8*2 candidates captures)
 
-    uint64_t hashBefore = zobristHash;
+    uint64_t hashBefore = state.zobristHash;
     Player playerBefore = currentPlayer;
-    int blackPairsBefore = blackPairs;
-    int whitePairsBefore = whitePairs;
-    int blackStonesBefore = blackStones;
-    int whiteStonesBefore = whiteStones;
+    int blackPairsBefore = state.blackPairs;
+    int whitePairsBefore = state.whitePairs;
+    int blackStonesBefore = state.blackStones;
+    int whiteStonesBefore = state.whiteStones;
     GameStatus statusBefore = gameState;
 
     struct CellSnapshot {
         Pos p;
         Cell before;
     };
-    CellSnapshot center { m.pos, at(m.pos.x, m.pos.y) }; // devrait être Empty si légal
-
     // Générer les positions candidates pouvant être capturées (x1,x2) pour chaque direction ±
     static constexpr int DX[4] = { 1, 0, 1, 1 };
     static constexpr int DY[4] = { 0, 1, 1, -1 };
@@ -479,12 +439,7 @@ bool Board::speculativeTry(Move m, const RuleSet& rules, PlayResult* out)
 
     // ROLLBACK : retirer la pierre posée et restaurer les cellules capturées.
     // La pierre jouée est toujours à m.pos si succès.
-    cells[idx(m.pos.x, m.pos.y)] = center.before; // normalement Empty
-    // adjust stone counts for the removed placed stone
-    if (m.by == Player::Black)
-        --blackStones;
-    else
-        --whiteStones;
+    state.removeStone(m.pos);
 
     // Restaurer chaque cellule candidate devenue vide alors qu'elle ne l'était pas avant
     for (int i = 0; i < candCount; ++i) {
@@ -493,22 +448,18 @@ bool Board::speculativeTry(Move m, const RuleSet& rules, PlayResult* out)
         // Si la cellule a été vidée (capture) on la restaure.
         if (snap.before != Cell::Empty && after == Cell::Empty) {
             // (snap.before devrait être oppC en pratique)
-            cells[idx(snap.p.x, snap.p.y)] = snap.before;
-            if (snap.before == Cell::Black)
-                ++blackStones;
-            else if (snap.before == Cell::White)
-                ++whiteStones;
+            state.placeStone(snap.p, snap.before);
         }
     }
 
     // Restaurer compteurs & statut & trait & hash
-    blackPairs = blackPairsBefore;
-    whitePairs = whitePairsBefore;
-    blackStones = blackStonesBefore;
-    whiteStones = whiteStonesBefore;
+    state.blackPairs = blackPairsBefore;
+    state.whitePairs = whitePairsBefore;
+    state.blackStones = blackStonesBefore;
+    state.whiteStones = whiteStonesBefore;
     gameState = statusBefore;
     currentPlayer = playerBefore;
-    zobristHash = hashBefore; // hash global cohérent (inclut side to move)
+    state.zobristHash = hashBefore; // hash global cohérent (inclut side to move)
 
     return true;
 }
@@ -522,52 +473,20 @@ bool Board::undo()
     moveHistory.pop_back();
 
     // Zobrist: le trait redevient celui d'avant
-    zobristHash ^= side();
+    state.flipSide();
 
-    // Retirer la pierre jouée
-    cells[idx(u.move.pos.x, u.move.pos.y)] = Cell::Empty;
-    // Zobrist: retirer la pierre annulée
-    zobristHash ^= piece(playerToCell(u.move.by), u.move.pos.x, u.move.pos.y);
-    // Update stone count for removed stone
-    if (u.move.by == Player::Black)
-        --blackStones;
-    else
-        --whiteStones;
-    // Sparse index remove via swap-pop
-    {
-        const int id = idx(u.move.pos.x, u.move.pos.y);
-        int16_t posIdx = occIdx_[id];
-        if (posIdx >= 0) {
-            const int lastIdx = static_cast<int>(occupied_.size()) - 1;
-            if (posIdx != lastIdx) {
-                Pos moved = occupied_.back();
-                occupied_[posIdx] = moved;
-                occIdx_[moved.toIndex()] = posIdx;
-            }
-            occupied_.pop_back();
-            occIdx_[id] = -1;
-        }
-    }
+    // Retirer la pierre jouée (cell + occupied)
+    state.removeStone(u.move.pos);
 
     // Restaurer les pierres capturées
     Cell oppC = (u.move.by == Player::Black ? Cell::White : Cell::Black);
     for (auto rp : u.capturedStones) {
-        cells[idx(rp.x, rp.y)] = oppC;
-        // Zobrist: remettre les capturées
-        zobristHash ^= piece(oppC, rp.x, rp.y);
-        if (oppC == Cell::Black)
-            ++blackStones;
-        else
-            ++whiteStones;
-        // Sparse index add back
-        const int id = idx(rp.x, rp.y);
-        occIdx_[id] = static_cast<int16_t>(occupied_.size());
-        occupied_.push_back(rp);
+        state.placeStone(rp, oppC);
     }
-    blackPairs = u.blackPairsBefore;
-    whitePairs = u.whitePairsBefore;
-    blackStones = u.blackStonesBefore;
-    whiteStones = u.whiteStonesBefore;
+    state.blackPairs = u.blackPairsBefore;
+    state.whitePairs = u.whitePairsBefore;
+    state.blackStones = u.blackStonesBefore;
+    state.whiteStones = u.whiteStonesBefore;
     gameState = u.stateBefore;
     currentPlayer = u.playerBefore;
     return true;
@@ -598,7 +517,7 @@ std::vector<Move> Board::legalMoves(Player p, const RuleSet& rules) const
     // using the sparse occupied index to avoid scanning the whole board.
     std::vector<uint8_t> mark(static_cast<std::size_t>(BOARD_SIZE * BOARD_SIZE), 0);
     out.reserve(256);
-    for (const auto& s : occupied_) {
+    for (const auto& s : state.occupied_) {
         for (int dy = -2; dy <= 2; ++dy) {
             for (int dx = -2; dx <= 2; ++dx) {
                 int nx = static_cast<int>(s.x) + dx;
@@ -625,7 +544,7 @@ std::vector<Move> Board::legalMoves(Player p, const RuleSet& rules) const
 bool Board::hasAnyFive(Cell who) const
 {
     // Iterate only on occupied cells to avoid scanning empty space
-    for (const auto& p : occupied_) {
+    for (const auto& p : state.occupied_) {
         if (at(p.x, p.y) == who) {
             if (checkFiveOrMoreFrom(p, who))
                 return true;
@@ -655,7 +574,7 @@ bool Board::isFiveBreakableNow(Player justPlayed, const RuleSet& rules) const
     std::vector<uint8_t> seen(static_cast<std::size_t>(BOARD_SIZE * BOARD_SIZE), 0);
     std::vector<Pos> cand;
     cand.reserve(128);
-    for (const auto& s : base.occupied_) {
+    for (const auto& s : base.state.occupied_) {
         if (base.at(s.x, s.y) != meC)
             continue;
         for (int d = 0; d < 4; ++d) {
@@ -689,17 +608,21 @@ bool Board::isFiveBreakableNow(Player justPlayed, const RuleSet& rules) const
 
         Board sim = base;
         // place the stone and apply captures
-        sim.cells[idx(mv.pos.x, mv.pos.y)] = playerToCell(opp);
+        sim.state.placeStone(mv.pos, playerToCell(opp));
         std::vector<Pos> removed;
         int gained = sim.applyCapturesAround(mv.pos, playerToCell(opp), rules, removed);
         if (gained) {
             if (opp == Player::Black)
-                sim.blackPairs += gained;
+                sim.state.blackPairs += gained;
             else
-                sim.whitePairs += gained;
+                sim.state.whitePairs += gained;
+        }
+        // sync occupancy for captured stones
+        for (auto rp : removed) {
+            sim.state.removeStone(rp);
         }
 
-        int oppPairsAfter = (opp == Player::Black ? sim.blackPairs : sim.whitePairs);
+        int oppPairsAfter = (opp == Player::Black ? sim.state.blackPairs : sim.state.whitePairs);
         if (oppPairsAfter >= rules.captureWinPairs)
             return true; // immediate win by capture
         if (!sim.hasAnyFive(meC))
@@ -713,13 +636,13 @@ void Board::forceSide(Player p)
     if (currentPlayer != p) {
         currentPlayer = p;
         // Maintenir la clé Zobrist alignée avec "side to move"
-        zobristHash ^= side();
+        state.flipSide();
     }
 }
 
 bool Board::isBoardFull() const
 {
-    return (blackStones + whiteStones) == N;
+    return (state.blackStones + state.whiteStones) == N;
 }
 
 // Détecte si m provoquerait une capture XOOX (±4 directions)
@@ -732,10 +655,10 @@ bool Board::wouldCapture(Move m) const noexcept
     for (int d = 0; d < 4; ++d) {
         const auto& R = capRaysByDir[d][i];
 
-        if (R.fwd[2] != 0xFFFF && cells[R.fwd[2]] == me && cells[R.fwd[0]] == opp && cells[R.fwd[1]] == opp)
+        if (R.fwd[2] != 0xFFFF && state.cells[R.fwd[2]] == me && state.cells[R.fwd[0]] == opp && state.cells[R.fwd[1]] == opp)
             return true;
 
-        if (R.bwd[2] != 0xFFFF && cells[R.bwd[2]] == me && cells[R.bwd[0]] == opp && cells[R.bwd[1]] == opp)
+        if (R.bwd[2] != 0xFFFF && state.cells[R.bwd[2]] == me && state.cells[R.bwd[0]] == opp && state.cells[R.bwd[1]] == opp)
             return true;
     }
     return false;

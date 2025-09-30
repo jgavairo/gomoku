@@ -1,5 +1,6 @@
 #pragma once
 // Concrete board implementation backing the core game logic (libgomoku_logic.a)
+#include "gomoku/core/BoardState.hpp"
 #include "gomoku/core/Types.hpp"
 #include "gomoku/interfaces/IBoardView.hpp"
 #include <array>
@@ -54,11 +55,10 @@ private:
     static constexpr int N = BOARD_SIZE * BOARD_SIZE;
     static constexpr uint16_t idx(uint8_t x, uint8_t y);
 
-    std::array<Cell, N> cells {};
+    // Internal state container (cells, occupied index, counters, zobrist)
+    BoardState state;
 
     Player currentPlayer { Player::Black };
-    int blackPairs { 0 }, whitePairs { 0 };
-    int blackStones { 0 }, whiteStones { 0 }; // tracked counts
     GameStatus gameState { GameStatus::Ongoing };
 
     struct UndoEntry {
@@ -71,14 +71,7 @@ private:
     };
     std::vector<UndoEntry> moveHistory;
 
-    // --- Sparse index for occupied cells ---
-    std::vector<Pos> occupied_; // list of occupied positions (both colors)
-    std::array<int16_t, N> occIdx_ {}; // map linear index -> index in occupied_, -1 if empty
-
     static_assert(BOARD_SIZE * BOARD_SIZE < std::numeric_limits<int16_t>::max(), "occIdx_ requires N < int16_t::max");
-
-    // --- Zobrist hash ---
-    uint64_t zobristHash = 0;
 
     // --- Règles / détections ---
     bool createsIllegalDoubleThree(Move m, const RuleSet& rules) const;
