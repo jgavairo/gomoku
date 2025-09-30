@@ -1,5 +1,6 @@
 #include "gomoku/core/Board.hpp"
 #include "gomoku/core/CaptureEngine.hpp"
+#include "gomoku/core/PatternAnalyzer.hpp"
 #include "gomoku/core/Zobrist.hpp"
 #include <array>
 #include <cassert>
@@ -13,44 +14,7 @@ using gomoku::zobrist::piece;
 using gomoku::zobrist::side;
 // ------------------------------------------------
 
-namespace {
-    struct CapRay {
-        uint16_t fwd[3] {};
-        uint16_t bwd[3] {};
-    };
-
-    // encode position -> index, ou 0xFFFF si hors plateau
-    constexpr uint16_t encode(int x, int y)
-    {
-        return (unsigned)x < BOARD_SIZE && (unsigned)y < BOARD_SIZE
-            ? static_cast<uint16_t>(y * BOARD_SIZE + x)
-            : static_cast<uint16_t>(0xFFFF);
-    }
-
-    constexpr std::array<std::array<CapRay, BOARD_SIZE * BOARD_SIZE>, 4> makeCapRays()
-    {
-        std::array<std::array<CapRay, BOARD_SIZE * BOARD_SIZE>, 4> rays {};
-
-        constexpr int DX[4] = { 1, 0, 1, 1 };
-        constexpr int DY[4] = { 0, 1, 1, -1 };
-
-        for (int y = 0; y < BOARD_SIZE; ++y) {
-            for (int x = 0; x < BOARD_SIZE; ++x) {
-                const int i = y * BOARD_SIZE + x;
-                for (int d = 0; d < 4; ++d) {
-                    for (int k = 1; k <= 3; ++k) {
-                        rays[d][i].fwd[k - 1] = encode(x + k * DX[d], y + k * DY[d]);
-                        rays[d][i].bwd[k - 1] = encode(x - k * DX[d], y - k * DY[d]);
-                    }
-                }
-            }
-        }
-        return rays;
-    }
-
-    // Table calculée à la compilation
-    constexpr auto capRaysByDir = makeCapRays();
-}
+// (ray tables moved to PatternAnalyzer/CaptureEngine)
 
 Board::Board() { reset(); }
 
@@ -112,134 +76,14 @@ void Board::reset()
 // Double-trois (free-threes) avec prise en compte des captures
 bool Board::createsIllegalDoubleThree(Move m, const RuleSet& rules) const
 {
-    if (!rules.forbidDoubleThree)
-        return false;
-
-    // Exception : un coup capturant est autorisé même s'il crée un double-trois
-    if (rules.capturesEnabled && capture::wouldCapture(state, m))
-        return false;
-
-    const Cell ME = playerToCell(m.by);
-    const Cell OP = (ME == Cell::Black ? Cell::White : Cell::Black);
-
-    // --- Pré-calcul des captures virtuelles autour de m via capRaysByDir ---
-    uint16_t capturedIdx[8];
-    int captured_n = 0;
-
-    const int idx0 = m.pos.y * BOARD_SIZE + m.pos.x;
-    for (int d = 0; d < 4; ++d) {
-        const auto& ray = capRaysByDir[d][idx0];
-
-        // fwd: .. OP, OP, ME -> capture
-        if (ray.fwd[2] != 0xFFFF && state.cells[ray.fwd[0]] == OP && state.cells[ray.fwd[1]] == OP && state.cells[ray.fwd[2]] == ME) {
-            capturedIdx[captured_n++] = ray.fwd[0];
-            capturedIdx[captured_n++] = ray.fwd[1];
-        }
-        // bwd: ME, OP, OP .. -> capture
-        if (ray.bwd[2] != 0xFFFF && state.cells[ray.bwd[0]] == OP && state.cells[ray.bwd[1]] == OP && state.cells[ray.bwd[2]] == ME) {
-            capturedIdx[captured_n++] = ray.bwd[0];
-            capturedIdx[captured_n++] = ray.bwd[1];
-        }
-    }
-
-    auto isVirtuallyCaptured = [&](uint16_t idx) noexcept {
-        for (int i = 0; i < captured_n; ++i)
-            if (capturedIdx[i] == idx)
-                return true;
-        return false;
-    };
-
-    auto vAt = [&](int x, int y) noexcept -> Cell {
-        if ((unsigned)x >= BOARD_SIZE || (unsigned)y >= BOARD_SIZE)
-            return OP; // mur = adversaire
-        const uint16_t idx = static_cast<uint16_t>(y * BOARD_SIZE + x);
-        if (idx == idx0)
-            return ME; // pierre qu'on pose
-        if (isVirtuallyCaptured(idx))
-            return Cell::Empty; // retirée virtuellement
-        return state.cells[idx];
-    };
-
-    // Teste des motifs autour de (0) sans construire de buffer :
-    // on lit seulement les cases nécessaires pour les gabarits centrés.
-    auto hasThreeInLine = [&](int dx, int dy) noexcept -> bool {
-        // On code: 0=vide, 1=ME, 2=OP (mur compte comme OP via vAt)
-        int C[9]; // offsets -4..+4
-        for (int off = -4, i = 0; off <= 4; ++off, ++i) {
-            const int x = (int)m.pos.x + off * dx;
-            const int y = (int)m.pos.y + off * dy;
-            Cell c = vAt(x, y);
-            C[i] = (c == Cell::Empty) ? 0 : (c == ME ? 1 : 2);
-        }
-        auto Z = [&](int k) noexcept { return C[k + 4] == 0; }; // empty at offset k
-        auto O = [&](int k) noexcept { return C[k + 4] == 1; }; // ME at offset k
-        // NB: offset 0 est toujours O(0) par construction
-
-        // --- "01110" (open three) : centre dans {gauche, milieu, droite} du trio ---
-        if (Z(-1) && O(0) && O(+1) && O(+2) && Z(+3))
-            return true; // centre = 1er du trio
-        if (Z(-2) && O(-1) && O(0) && O(+1) && Z(+2))
-            return true; // centre = milieu
-        if (Z(-3) && O(-2) && O(-1) && O(0) && Z(+1))
-            return true; // centre = 3e du trio
-
-        // --- "010110" ---
-        if (Z(-1) && O(0) && Z(+1) && O(+2) && O(+3) && Z(+4))
-            return true; // centre index 1
-        if (Z(-3) && O(-2) && Z(-1) && O(0) && O(+1) && Z(+2))
-            return true; // centre index 3
-        if (Z(-4) && O(-3) && O(-2) && Z(-1) && O(0) && Z(+1))
-            return true; // centre index 4
-
-        // --- "011010" ---
-        if (Z(-1) && O(0) && O(+1) && Z(+2) && O(+3) && Z(+4))
-            return true; // centre index 1
-        if (Z(-2) && O(-1) && O(0) && Z(+1) && O(+2) && Z(+3))
-            return true; // centre index 2
-        if (Z(-4) && O(-3) && O(-2) && Z(-1) && O(0) && Z(+1))
-            return true; // centre index 4 (même masque que ci-dessus pour certains cas)
-
-        return false;
-    };
-
-    int threes = 0;
-    if (hasThreeInLine(1, 0) && ++threes == 2)
-        return true;
-    if (hasThreeInLine(0, 1) && ++threes == 2)
-        return true;
-    if (hasThreeInLine(1, 1) && ++threes == 2)
-        return true;
-    if (hasThreeInLine(1, -1) && ++threes == 2)
-        return true;
-
-    return false;
+    return pattern::createsIllegalDoubleThree(state, m, rules);
 }
 
 // ------------------------------------------------
 // Détecte 5+ alignés depuis p (8 directions)
 bool Board::checkFiveOrMoreFrom(Pos p, Cell who) const
 {
-    static constexpr int DX[4] = { 1, 0, 1, 1 };
-    static constexpr int DY[4] = { 0, 1, 1, -1 };
-    for (int d = 0; d < 4; ++d) {
-        int count = 1;
-        for (int s = -1; s <= 1; s += 2) {
-            int x = p.x, y = p.y;
-            while (true) {
-                x += s * DX[d];
-                y += s * DY[d];
-                if (!isInside(static_cast<uint8_t>(x), static_cast<uint8_t>(y)))
-                    break;
-                if (at(static_cast<uint8_t>(x), static_cast<uint8_t>(y)) == who)
-                    ++count;
-                else
-                    break;
-            }
-        }
-        if (count >= 5)
-            return true;
-    }
-    return false;
+    return pattern::checkFiveOrMoreFrom(state, p, who);
 }
 
 // ------------------------------------------------
@@ -504,91 +348,13 @@ std::vector<Move> Board::legalMoves(Player p, const RuleSet& rules) const
 }
 
 // ------------------------------------------------
-bool Board::hasAnyFive(Cell who) const
-{
-    // Iterate only on occupied cells to avoid scanning empty space
-    for (const auto& p : state.occupied_) {
-        if (at(p.x, p.y) == who) {
-            if (checkFiveOrMoreFrom(p, who))
-                return true;
-        }
-    }
-    return false;
-}
+bool Board::hasAnyFive(Cell who) const { return pattern::hasAnyFive(state, who); }
 
 // Après que 'justPlayed' a posé sa pierre et que les captures ont été appliquées,
 // vérifier si l'adversaire peut casser immédiatement le 5+ par capture
 bool Board::isFiveBreakableNow(Player justPlayed, const RuleSet& rules) const
 {
-    if (!rules.capturesEnabled)
-        return false;
-
-    Player opp = (justPlayed == Player::Black ? Player::White : Player::Black);
-    Cell meC = playerToCell(justPlayed);
-
-    Board base = *this;
-    base.forceSide(opp); // au trait pour l'adversaire dans la simulation
-
-    // Build candidate empties adjacent (in the 4 aligned directions) to justPlayed's stones.
-    // Any XOOX capture square is adjacent to at least one of the two opponent stones (here: meC),
-    // so this neighborhood covers all immediate capture-breaking moves.
-    static constexpr int DX[4] = { 1, 0, 1, 1 };
-    static constexpr int DY[4] = { 0, 1, 1, -1 };
-    std::vector<uint8_t> seen(static_cast<std::size_t>(BOARD_SIZE * BOARD_SIZE), 0);
-    std::vector<Pos> cand;
-    cand.reserve(128);
-    for (const auto& s : base.state.occupied_) {
-        if (base.at(s.x, s.y) != meC)
-            continue;
-        for (int d = 0; d < 4; ++d) {
-            // + direction
-            int nx1 = static_cast<int>(s.x) + DX[d];
-            int ny1 = static_cast<int>(s.y) + DY[d];
-            if (base.isInside(static_cast<uint8_t>(nx1), static_cast<uint8_t>(ny1)) && base.at(static_cast<uint8_t>(nx1), static_cast<uint8_t>(ny1)) == Cell::Empty) {
-                uint16_t id = idx(static_cast<uint8_t>(nx1), static_cast<uint8_t>(ny1));
-                if (!seen[id]) {
-                    seen[id] = 1;
-                    cand.push_back(Pos { static_cast<uint8_t>(nx1), static_cast<uint8_t>(ny1) });
-                }
-            }
-            // - direction
-            int nx2 = static_cast<int>(s.x) - DX[d];
-            int ny2 = static_cast<int>(s.y) - DY[d];
-            if (base.isInside(static_cast<uint8_t>(nx2), static_cast<uint8_t>(ny2)) && base.at(static_cast<uint8_t>(nx2), static_cast<uint8_t>(ny2)) == Cell::Empty) {
-                uint16_t id = idx(static_cast<uint8_t>(nx2), static_cast<uint8_t>(ny2));
-                if (!seen[id]) {
-                    seen[id] = 1;
-                    cand.push_back(Pos { static_cast<uint8_t>(nx2), static_cast<uint8_t>(ny2) });
-                }
-            }
-        }
-    }
-
-    for (const auto& pos : cand) {
-        Move mv { pos, opp };
-        if (!capture::wouldCapture(base.state, mv))
-            continue; // only capturing moves can break immediately
-
-        Board sim = base;
-        // place the stone and apply captures
-        sim.state.placeStone(mv.pos, playerToCell(opp));
-        std::vector<Pos> removed;
-        int gained = capture::applyCapturesAround(sim.state, mv.pos, playerToCell(opp), rules, removed);
-        if (gained) {
-            if (opp == Player::Black)
-                sim.state.blackPairs += gained;
-            else
-                sim.state.whitePairs += gained;
-        }
-        // occupancy for captured stones already updated by applyCapturesAround
-
-        int oppPairsAfter = (opp == Player::Black ? sim.state.blackPairs : sim.state.whitePairs);
-        if (oppPairsAfter >= rules.captureWinPairs)
-            return true; // immediate win by capture
-        if (!sim.hasAnyFive(meC))
-            return true; // line is broken by the capture
-    }
-    return false;
+    return pattern::isFiveBreakableNow(state, justPlayed, rules);
 }
 
 void Board::forceSide(Player p)

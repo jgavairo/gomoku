@@ -48,6 +48,7 @@ TEST_BIN = bin/tests_runner        # test binary (without SFML)
 CORE_SRC = \
 	$(SRC_DIR)/gomoku/core/Board.cpp \
 	$(SRC_DIR)/gomoku/core/CaptureEngine.cpp \
+	$(SRC_DIR)/gomoku/core/PatternAnalyzer.cpp \
 	$(SRC_DIR)/gomoku/core/Zobrist.cpp \
 	$(SRC_DIR)/gomoku/core/BoardState.cpp \
 	$(SRC_DIR)/gomoku/core/Types.cpp \
