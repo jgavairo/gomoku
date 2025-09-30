@@ -24,9 +24,13 @@ class BoardState final {
 public:
     static constexpr int N = BOARD_SIZE * BOARD_SIZE;
     static constexpr uint16_t idx(uint8_t x, uint8_t y) noexcept
-    { return static_cast<uint16_t>(y * BOARD_SIZE + x); }
+    {
+        return static_cast<uint16_t>(y * BOARD_SIZE + x);
+    }
     static constexpr uint16_t idx(Pos p) noexcept
-    { return idx(p.x, p.y); }
+    {
+        return idx(p.x, p.y);
+    }
 
     // Raw storage
     std::array<Cell, N> cells {};
@@ -53,13 +57,9 @@ public:
     // Cell operations (do NOT touch occupied_ by design; combine with add/removeOccupied)
     // - setCell: set a cell to c and keep stone counters and hash in sync
     // - clearCell: set a cell to Empty and keep counters/hash in sync
-    void setCell(uint8_t x, uint8_t y, Cell c) noexcept;
-    void clearCell(uint8_t x, uint8_t y) noexcept;
-
-    // Occupancy tracking helpers (swap-pop removal)
-    // Respect the invariant occIdx_[i] == -1 <=> empty when used consistently
-    void addOccupied(Pos p) noexcept;
-    void removeOccupied(Pos p) noexcept;
+    Cell getCell(uint8_t x, uint8_t y) const noexcept { return cells[idx(x, y)]; }
+    Cell getCell(Pos p) const noexcept { return cells[idx(p)]; }
+    bool isFull() const noexcept { return occupied_.size() == N; }
 
     // High-level helpers keeping invariants automatically
     void placeStone(Pos p, Cell c) noexcept
@@ -78,6 +78,14 @@ public:
 
     static_assert(BOARD_SIZE * BOARD_SIZE < std::numeric_limits<int16_t>::max(),
         "occIdx_ requires N < int16_t::max");
+
+private:
+    // Occupancy tracking helpers (swap-pop removal)
+    // Respect the invariant occIdx_[i] == -1 <=> empty when used consistently
+    void setCell(uint8_t x, uint8_t y, Cell c) noexcept;
+    void clearCell(uint8_t x, uint8_t y) noexcept;
+    void addOccupied(Pos p) noexcept;
+    void removeOccupied(Pos p) noexcept;
 };
 
 } // namespace gomoku

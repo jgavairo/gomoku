@@ -1,17 +1,10 @@
 #include "gomoku/core/CaptureEngine.hpp"
 #include "gomoku/core/RayTables.hpp"
-#include "gomoku/core/Zobrist.hpp"
 
 namespace gomoku::capture {
 
-namespace {
-    constexpr uint16_t idx(uint8_t x, uint8_t y)
-    {
-        return static_cast<uint16_t>(y * BOARD_SIZE + x);
-    }
-}
-
-int applyCapturesAround(BoardState& state, Pos p, Cell who, const RuleSet& rules, std::vector<Pos>& removed)
+int applyCapturesAround(BoardState& state, Pos p, Cell who,
+                        const RuleSet& rules, std::vector<Pos>& removed)
 {
     if (!rules.capturesEnabled)
         return 0;
@@ -21,47 +14,58 @@ int applyCapturesAround(BoardState& state, Pos p, Cell who, const RuleSet& rules
     const Cell opp = (who == Cell::Black ? Cell::White : Cell::Black);
     int pairs = 0;
 
-    auto isInside = [](uint8_t x, uint8_t y) { return x < BOARD_SIZE && y < BOARD_SIZE; };
+    auto isInside = [](uint8_t x, uint8_t y) {
+        return x < BOARD_SIZE && y < BOARD_SIZE;
+    };
 
     auto tryDir = [&](int sx, int sy, int dx, int dy) -> bool {
-        int x1 = sx + dx, y1 = sy + dy;
-        int x2 = sx + 2 * dx, y2 = sy + 2 * dy;
-        int x3 = sx + 3 * dx, y3 = sy + 3 * dy;
-        if (!isInside(static_cast<uint8_t>(x3), static_cast<uint8_t>(y3)))
+        int x1 = sx + dx,     y1 = sy + dy;
+        int x2 = sx + 2*dx,   y2 = sy + 2*dy;
+        int x3 = sx + 3*dx,   y3 = sy + 3*dy;
+
+        if (!isInside((uint8_t)x3, (uint8_t)y3))
             return false;
-        auto at = [&](uint8_t x, uint8_t y) { return state.cells[idx(x, y)]; };
-        if (at(static_cast<uint8_t>(x1), static_cast<uint8_t>(y1)) == opp && at(static_cast<uint8_t>(x2), static_cast<uint8_t>(y2)) == opp && at(static_cast<uint8_t>(x3), static_cast<uint8_t>(y3)) == who) {
-            state.removeStone(Pos { (uint8_t)x1, (uint8_t)y1 });
-            state.removeStone(Pos { (uint8_t)x2, (uint8_t)y2 });
-            removed.push_back({ (uint8_t)x1, (uint8_t)y1 });
-            removed.push_back({ (uint8_t)x2, (uint8_t)y2 });
+
+        auto at = [&](int x, int y) {
+            return state.getCell(Pos { static_cast<uint8_t>(x), static_cast<uint8_t>(y) });
+        };
+
+        if (at(x1,y1) == opp && at(x2,y2) == opp && at(x3,y3) == who) {
+            state.removeStone({(uint8_t)x1, (uint8_t)y1});
+            state.removeStone({(uint8_t)x2, (uint8_t)y2});
+            removed.push_back({(uint8_t)x1, (uint8_t)y1});
+            removed.push_back({(uint8_t)x2, (uint8_t)y2});
             return true;
         }
         return false;
     };
 
     for (int d = 0; d < 4; ++d) {
-        if (tryDir(p.x, p.y, DX[d], DY[d]))
-            ++pairs; // forward
-        if (tryDir(p.x, p.y, -DX[d], -DY[d]))
-            ++pairs; // backward
+        if (tryDir(p.x, p.y, DX[d], DY[d])) ++pairs; // forward
+        if (tryDir(p.x, p.y, -DX[d], -DY[d])) ++pairs; // backward
     }
     return pairs;
 }
 
 bool wouldCapture(const BoardState& state, Move m) noexcept
 {
-    const Cell me = playerToCell(m.by);
+    const Cell me  = playerToCell(m.by);
     const Cell opp = (me == Cell::Black ? Cell::White : Cell::Black);
-    const uint16_t i = idx(m.pos.x, m.pos.y);
+    const uint16_t i = BoardState::idx(m.pos);
 
     for (int d = 0; d < 4; ++d) {
         const auto& R = rays::capRaysByDir[d][i];
 
-        if (R.fwd[2] != 0xFFFF && state.cells[R.fwd[2]] == me && state.cells[R.fwd[0]] == opp && state.cells[R.fwd[1]] == opp)
+        if (R.fwd[2] != 0xFFFF &&
+            state.getCell(Pos::fromIndex(R.fwd[2])) == me &&
+            state.getCell(Pos::fromIndex(R.fwd[0])) == opp &&
+            state.getCell(Pos::fromIndex(R.fwd[1])) == opp)
             return true;
 
-        if (R.bwd[2] != 0xFFFF && state.cells[R.bwd[2]] == me && state.cells[R.bwd[0]] == opp && state.cells[R.bwd[1]] == opp)
+        if (R.bwd[2] != 0xFFFF &&
+            state.getCell(Pos::fromIndex(R.bwd[2])) == me &&
+            state.getCell(Pos::fromIndex(R.bwd[0])) == opp &&
+            state.getCell(Pos::fromIndex(R.bwd[1])) == opp)
             return true;
     }
     return false;

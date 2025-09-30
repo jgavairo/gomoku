@@ -73,13 +73,6 @@ private:
 
     static_assert(BOARD_SIZE * BOARD_SIZE < std::numeric_limits<int16_t>::max(), "occIdx_ requires N < int16_t::max");
 
-    // --- Règles / détections ---
-    bool createsIllegalDoubleThree(Move m, const RuleSet& rules) const;
-    bool checkFiveOrMoreFrom(Pos p, Cell who) const;
-
-    bool hasAnyFive(Cell who) const;
-    bool isFiveBreakableNow(Player justPlayed, const RuleSet& rules) const;
-
     // Facteur interne : logique partagée d'application. Si record=true, pousse UndoEntry.
     PlayResult applyCore(Move m, const RuleSet& rules, bool record);
 

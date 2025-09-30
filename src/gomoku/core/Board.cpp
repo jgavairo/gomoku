@@ -4,17 +4,11 @@
 #include "gomoku/core/Zobrist.hpp"
 #include <array>
 #include <cassert>
-#include <random>
 #include <string>
 
 namespace gomoku {
 
-// ------------------ Zobrist via dedicated module ------------------
-using gomoku::zobrist::piece;
-using gomoku::zobrist::side;
 // ------------------------------------------------
-
-// (ray tables moved to PatternAnalyzer/CaptureEngine)
 
 Board::Board() { reset(); }
 
@@ -73,24 +67,6 @@ void Board::reset()
 }
 
 // ------------------------------------------------
-// Double-trois (free-threes) avec prise en compte des captures
-bool Board::createsIllegalDoubleThree(Move m, const RuleSet& rules) const
-{
-    return pattern::createsIllegalDoubleThree(state, m, rules);
-}
-
-// ------------------------------------------------
-// Détecte 5+ alignés depuis p (8 directions)
-bool Board::checkFiveOrMoreFrom(Pos p, Cell who) const
-{
-    return pattern::checkFiveOrMoreFrom(state, p, who);
-}
-
-// ------------------------------------------------
-// Captures XOOX dans 4 directions et 2 sens
-// applyCapturesAround moved to CaptureEngine
-
-// ------------------------------------------------
 PlayResult Board::applyCore(Move m, const RuleSet& rules, bool record)
 {
     if (gameState != GameStatus::Ongoing) {
@@ -107,7 +83,7 @@ PlayResult Board::applyCore(Move m, const RuleSet& rules, bool record)
     if (rules.allowFiveOrMore && rules.capturesEnabled) {
         Player justPlayed = opponent(currentPlayer);
         Cell meC = playerToCell(justPlayed);
-        if (hasAnyFive(meC) && isFiveBreakableNow(justPlayed, rules))
+        if (pattern::hasAnyFive(state, meC) && pattern::isFiveBreakableNow(state, justPlayed, rules))
             mustBreak = true;
     }
 
@@ -117,7 +93,7 @@ PlayResult Board::applyCore(Move m, const RuleSet& rules, bool record)
             return PlayResult::fail(PlayErrorCode::RuleViolation, "Must break opponent's five.");
         }
         Board sim = *this;
-        sim.state.setCell(m.pos.x, m.pos.y, playerToCell(m.by));
+        sim.state.placeStone(m.pos, playerToCell(m.by));
         std::vector<Pos> removedTmp;
         int gainedTmp = capture::applyCapturesAround(sim.state, m.pos, playerToCell(m.by), rules, removedTmp);
         if (gainedTmp) {
@@ -128,14 +104,14 @@ PlayResult Board::applyCore(Move m, const RuleSet& rules, bool record)
         }
         int myPairsAfter = (m.by == Player::Black ? sim.state.blackPairs : sim.state.whitePairs);
         Cell oppFiveColor = playerToCell(opponent(currentPlayer));
-        bool breaks = (myPairsAfter >= rules.captureWinPairs) || (!sim.hasAnyFive(oppFiveColor));
+        bool breaks = (myPairsAfter >= rules.captureWinPairs) || (!pattern::hasAnyFive(sim.state, oppFiveColor));
         if (!breaks) {
             return PlayResult::fail(PlayErrorCode::RuleViolation, "Must break opponent's five.");
         }
         allowDoubleThreeThisMove = true;
     }
 
-    if (!allowDoubleThreeThisMove && createsIllegalDoubleThree(m, rules)) {
+    if (!allowDoubleThreeThisMove && pattern::createsIllegalDoubleThree(state, m, rules)) {
         return PlayResult::fail(PlayErrorCode::RuleViolation, "Illegal double-three.");
     }
 
@@ -163,8 +139,8 @@ PlayResult Board::applyCore(Move m, const RuleSet& rules, bool record)
             state.whitePairs += gained;
     }
 
-    if (rules.allowFiveOrMore && checkFiveOrMoreFrom(m.pos, playerToCell(m.by))) {
-        if (!isFiveBreakableNow(m.by, rules)) {
+    if (rules.allowFiveOrMore && pattern::checkFiveOrMoreFrom(state, m.pos, playerToCell(m.by))) {
+        if (!pattern::isFiveBreakableNow(state, m.by, rules)) {
             gameState = GameStatus::WinByAlign;
         }
     }
@@ -312,7 +288,7 @@ std::vector<Move> Board::legalMoves(Player p, const RuleSet& rules) const
                 if (at(x, y) != Cell::Empty)
                     continue;
                 Move m { { x, y }, p };
-                if (createsIllegalDoubleThree(m, rules))
+                if (pattern::createsIllegalDoubleThree(state, m, rules))
                     continue;
                 out.push_back(m);
             }
@@ -338,23 +314,13 @@ std::vector<Move> Board::legalMoves(Player p, const RuleSet& rules) const
                     continue;
                 mark[id] = 1;
                 Move m { { static_cast<uint8_t>(nx), static_cast<uint8_t>(ny) }, p };
-                if (createsIllegalDoubleThree(m, rules))
+                if (pattern::createsIllegalDoubleThree(state, m, rules))
                     continue;
                 out.push_back(m);
             }
         }
     }
     return out;
-}
-
-// ------------------------------------------------
-bool Board::hasAnyFive(Cell who) const { return pattern::hasAnyFive(state, who); }
-
-// Après que 'justPlayed' a posé sa pierre et que les captures ont été appliquées,
-// vérifier si l'adversaire peut casser immédiatement le 5+ par capture
-bool Board::isFiveBreakableNow(Player justPlayed, const RuleSet& rules) const
-{
-    return pattern::isFiveBreakableNow(state, justPlayed, rules);
 }
 
 void Board::forceSide(Player p)
@@ -370,8 +336,5 @@ bool Board::isBoardFull() const
 {
     return (state.blackStones + state.whiteStones) == N;
 }
-
-// Détecte si m provoquerait une capture XOOX (±4 directions)
-// wouldCapture moved to CaptureEngine
 
 } // namespace gomoku
