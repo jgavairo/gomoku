@@ -18,42 +18,26 @@ public:
 
     // ---- IBoardView interface ----
     Cell at(uint8_t x, uint8_t y) const override;
-    Player toPlay() const override { return currentPlayer; }
-    CaptureCount capturedPairs() const override { return { blackPairs, whitePairs }; }
-    GameStatus status() const override { return gameState; }
+    Player toPlay() const override;
+    CaptureCount capturedPairs() const override;
+    GameStatus status() const override;
     bool isBoardFull() const override;
     std::vector<Move> legalMoves(Player p, const RuleSet& rules) const override;
-    uint64_t zobristKey() const override { return zobristHash; }
+    uint64_t zobristKey() const override;
 
     // ---- Board-specific API ----
     void reset();
-    bool isInside(uint8_t x, uint8_t y) const { return x < BOARD_SIZE && y < BOARD_SIZE; }
-    bool isEmpty(uint8_t x, uint8_t y) const { return isInside(x, y) && cells[idx(x, y)] == Cell::Empty; }
+    bool isInside(uint8_t x, uint8_t y) const;
+    bool isEmpty(uint8_t x, uint8_t y) const;
 
     // Stone count (tracked incrementally)
-    int stoneCount(Player p) const { return (p == Player::Black) ? blackStones : whiteStones; }
+    int stoneCount(Player p) const;
 
     // Last move played (if any)
-    std::optional<Move> lastMove() const
-    {
-        if (moveHistory.empty())
-            return std::nullopt;
-        return moveHistory.back().move;
-    }
+    std::optional<Move> lastMove() const;
 
     // Last k moves (most recent first). Returns up to k moves.
-    std::vector<Move> lastMoves(std::size_t k) const
-    {
-        std::vector<Move> out;
-        if (k == 0 || moveHistory.empty())
-            return out;
-        const std::size_t n = std::min(k, moveHistory.size());
-        out.reserve(n);
-        for (std::size_t i = 0; i < n; ++i) {
-            out.push_back(moveHistory[moveHistory.size() - 1 - i].move);
-        }
-        return out;
-    }
+    std::vector<Move> lastMoves(std::size_t k) const;
 
     PlayResult tryPlay(Move m, const RuleSet& rules);
     bool undo();
@@ -64,11 +48,11 @@ public:
     void forceSide(Player p);
 
     // Sparse occupied cells accessor (for fast scans in generators/eval)
-    const std::vector<Pos>& occupiedPositions() const { return occupied_; }
+    const std::vector<Pos>& occupiedPositions() const;
 
 private:
     static constexpr int N = BOARD_SIZE * BOARD_SIZE;
-    static constexpr uint16_t idx(uint8_t x, uint8_t y) { return static_cast<uint16_t>(y * BOARD_SIZE + x); }
+    static constexpr uint16_t idx(uint8_t x, uint8_t y);
 
     std::array<Cell, N> cells {};
 
@@ -107,7 +91,7 @@ private:
     // Facteur interne : logique partagée d'application. Si record=true, pousse UndoEntry.
     PlayResult applyCore(Move m, const RuleSet& rules, bool record);
 
-    inline bool wouldCapture(Move m) const noexcept;
+    bool wouldCapture(Move m) const noexcept;
 };
 
 } // namespace gomoku

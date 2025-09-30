@@ -74,12 +74,50 @@ namespace {
 
 Board::Board() { reset(); }
 
+// Define constexpr helper from header
+constexpr uint16_t Board::idx(uint8_t x, uint8_t y)
+{
+    return static_cast<uint16_t>(y * BOARD_SIZE + x);
+}
+
 Cell Board::at(uint8_t x, uint8_t y) const
 {
     if (!isInside(x, y))
         return Cell::Empty;
     return cells[idx(x, y)];
 }
+
+Player Board::toPlay() const { return currentPlayer; }
+CaptureCount Board::capturedPairs() const { return { blackPairs, whitePairs }; }
+GameStatus Board::status() const { return gameState; }
+uint64_t Board::zobristKey() const { return zobristHash; }
+
+bool Board::isInside(uint8_t x, uint8_t y) const { return x < BOARD_SIZE && y < BOARD_SIZE; }
+bool Board::isEmpty(uint8_t x, uint8_t y) const { return isInside(x, y) && cells[idx(x, y)] == Cell::Empty; }
+
+int Board::stoneCount(Player p) const { return (p == Player::Black) ? blackStones : whiteStones; }
+
+std::optional<Move> Board::lastMove() const
+{
+    if (moveHistory.empty())
+        return std::nullopt;
+    return moveHistory.back().move;
+}
+
+std::vector<Move> Board::lastMoves(std::size_t k) const
+{
+    std::vector<Move> out;
+    if (k == 0 || moveHistory.empty())
+        return out;
+    const std::size_t n = std::min(k, moveHistory.size());
+    out.reserve(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        out.push_back(moveHistory[moveHistory.size() - 1 - i].move);
+    }
+    return out;
+}
+
+const std::vector<Pos>& Board::occupiedPositions() const { return occupied_; }
 
 void Board::reset()
 {
@@ -706,7 +744,7 @@ bool Board::isBoardFull() const
 }
 
 // Détecte si m provoquerait une capture XOOX (±4 directions)
-inline bool Board::wouldCapture(Move m) const noexcept
+bool Board::wouldCapture(Move m) const noexcept
 {
     const Cell me = playerToCell(m.by);
     const Cell opp = (me == Cell::Black ? Cell::White : Cell::Black);
