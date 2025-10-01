@@ -55,7 +55,6 @@ public:
 
 private:
     static constexpr int N = BOARD_SIZE * BOARD_SIZE;
-    static constexpr uint16_t idx(uint8_t x, uint8_t y);
 
     // Internal state container (cells, occupied index, counters, zobrist)
     BoardState state;

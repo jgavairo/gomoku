@@ -121,14 +121,10 @@ struct PlayResult {
 
     static PlayResult ok() { return { true, PlayErrorCode::None, "" }; }
     static PlayResult fail(PlayErrorCode c, std::string reason)
-    {
-        return { false, c, std::move(reason) };
-    }
+    { return { false, c, std::move(reason) }; }
     // Backward compatibility helper (defaults to RuleViolation if unspecified)
     static PlayResult fail(std::string reason)
-    {
-        return { false, PlayErrorCode::RuleViolation, std::move(reason) };
-    }
+    { return { false, PlayErrorCode::RuleViolation, std::move(reason) }; }
 };
 
 // Game status/outcome

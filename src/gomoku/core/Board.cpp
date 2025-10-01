@@ -1,4 +1,5 @@
 #include "gomoku/core/Board.hpp"
+#include "gomoku/core/BoardState.hpp"
 #include "gomoku/core/CaptureEngine.hpp"
 #include "gomoku/core/PatternAnalyzer.hpp"
 #include "gomoku/core/Zobrist.hpp"
@@ -12,17 +13,13 @@ namespace gomoku {
 
 Board::Board() { reset(); }
 
-// Define constexpr helper from header
-constexpr uint16_t Board::idx(uint8_t x, uint8_t y)
-{
-    return static_cast<uint16_t>(y * BOARD_SIZE + x);
-}
+// BoardState::idx/Pos::toIndex are used for linear indexing; no local helper needed.
 
 Cell Board::at(uint8_t x, uint8_t y) const
 {
     if (!isInside(x, y))
         return Cell::Empty;
-    return state.cells[idx(x, y)];
+    return state.cells[BoardState::idx(x, y)];
 }
 
 Player Board::toPlay() const { return currentPlayer; }
@@ -31,7 +28,7 @@ GameStatus Board::status() const { return gameState; }
 uint64_t Board::zobristKey() const { return state.zobristHash; }
 
 bool Board::isInside(uint8_t x, uint8_t y) const { return x < BOARD_SIZE && y < BOARD_SIZE; }
-bool Board::isEmpty(uint8_t x, uint8_t y) const { return isInside(x, y) && state.cells[idx(x, y)] == Cell::Empty; }
+bool Board::isEmpty(uint8_t x, uint8_t y) const { return isInside(x, y) && state.cells[BoardState::idx(x, y)] == Cell::Empty; }
 
 int Board::stoneCount(Player p) const { return (p == Player::Black) ? state.blackStones : state.whiteStones; }
 
@@ -309,7 +306,7 @@ std::vector<Move> Board::legalMoves(Player p, const RuleSet& rules) const
                     continue;
                 if (at(static_cast<uint8_t>(nx), static_cast<uint8_t>(ny)) != Cell::Empty)
                     continue;
-                uint16_t id = idx(static_cast<uint8_t>(nx), static_cast<uint8_t>(ny));
+                uint16_t id = BoardState::idx(static_cast<uint8_t>(nx), static_cast<uint8_t>(ny));
                 if (mark[id])
                     continue;
                 mark[id] = 1;
