@@ -101,8 +101,9 @@ private:
     {
         size_t pos = format.find("{}");
         if (pos != std::string::npos) {
-            std::string newFormat = format.substr(0, pos) + std::to_string(value) + format.substr(pos + 2);
-            formatMessage(oss, newFormat, std::forward<Args>(args)...);
+            oss << format.substr(0, pos);
+            oss << value; // Direct stream insertion works for all types
+            formatMessage(oss, format.substr(pos + 2), std::forward<Args>(args)...);
         } else {
             oss << format << " " << std::forward<T>(value);
             formatMessage(oss, " {}", std::forward<Args>(args)...);
