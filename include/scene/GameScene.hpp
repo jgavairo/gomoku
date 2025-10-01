@@ -21,9 +21,11 @@ public:
 
 private:
     void onBackClicked();
+    void onHintClicked();
 
     bool vsAi_;
     gomoku::ui::Button backButton_;
+    gomoku::ui::Button hintButton_;
     gomoku::gui::GameBoardRenderer boardRenderer_;
     gomoku::SessionController gameSession_;
     gomoku::RuleSet rules_;
