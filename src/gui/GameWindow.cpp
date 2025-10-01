@@ -16,7 +16,7 @@ using gomoku::scene::GameSelectScene;
 using gomoku::scene::MainMenu;
 
 GameWindow::GameWindow() { init(); }
-GameWindow::~GameWindow() = default;
+GameWindow::~GameWindow() { cleanup(); }
 
 bool GameWindow::isRunning() { return isRunning_; }
 
@@ -113,6 +113,15 @@ void GameWindow::cleanup()
         return;
     cleaned_ = true;
     isRunning_ = false;
+    // Stop music and SFX before releasing resources
+    try {
+        music_.stop();
+    } catch (...) {}
+    for (auto& voice : sfxVoices_) {
+        try { voice.stop(); } catch (...) {}
+        try { voice.resetBuffer(); } catch (...) {}
+    }
+    sfxVoices_.clear();
     if (currentScene_) {
         currentScene_->onExit();
         currentScene_.reset();
@@ -180,7 +189,7 @@ void GameWindow::run()
         }
         if (context_.shouldQuit) {
             cleanup();
-            std::exit(0);
+            return;
         } else if (context_.showGameSelectMenu && !context_.inGame && !context_.showMainMenu) {
             if (currentScene_)
                 currentScene_->onExit();
