@@ -44,13 +44,6 @@ public:
     std::vector<Move> orderedMovesPublic(const Board& board, const RuleSet& rules, Player toPlay) const;
 
 private:
-    // Shared search context to avoid long parameter lists
-    struct SearchContext {
-        const RuleSet& rules;
-        std::chrono::steady_clock::time_point deadline;
-        SearchStats* stats { nullptr };
-        unsigned long long nodeCap { 0 };
-    };
     // --- Core search primitives (signatures only) ---
 
     // Negamax with alpha-beta pruning and PVS. Returns best score and fills PV.
@@ -73,18 +66,6 @@ private:
 
     // Time management: returns true when we should abort the current search (soft stop).
     bool cutoffByTime(const SearchContext& ctx) const;
-
-    // Lightweight accounting for stats (node/qnode incrementers, killer/history updates, etc.).
-    inline void onNodeVisited(SearchStats* stats) const
-    {
-        if (stats)
-            ++stats->nodes;
-    }
-    inline void onQNodeVisited(SearchStats* stats) const
-    {
-        if (stats)
-            ++stats->qnodes;
-    }
 
     // --- Helpers extracted from bestMove for readability ---
     // Tries the immediate win shortcut if plausible; returns the winning move if found.

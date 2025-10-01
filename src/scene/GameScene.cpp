@@ -1,6 +1,6 @@
 #include "scene/GameScene.hpp"
-#include <algorithm>
 #include "audio/Volumes.hpp"
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <iostream>
@@ -19,7 +19,6 @@ GameScene::GameScene(Context& context, bool vsAi)
         backButton_.setTexture(&context_.resourceManager->getTexture("back_button"));
     backButton_.setScale(1.0f);
     backButton_.setCallback([this]() { onBackClicked(); });
-
 
     hintButton_.setPosition({ 1780, 880 });
     if (context_.resourceManager && context_.resourceManager->hasTexture("hint_button"))
@@ -315,7 +314,7 @@ void GameScene::onBackClicked()
     context_.inGame = false;
     context_.showMainMenu = true;
     std::string musicPath = std::string("assets/audio/") + context_.theme + "/menu_theme.ogg";
-	playMusic(musicPath.c_str(), true, MUSIC_VOLUME);
+    playMusic(musicPath.c_str(), true, MUSIC_VOLUME);
 }
 
 void GameScene::onHintClicked()
