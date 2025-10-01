@@ -23,6 +23,13 @@ private:
     void onBackClicked();
     void onHintClicked();
 
+    std::optional<gomoku::Pos> hintPos_;
+    bool hintEnabled_ = false;
+    // Sprite dédié pour afficher le pion helper
+    mutable sf::Sprite helperSprite_;
+    mutable bool helperSpriteReady_ = false;
+
+
     bool vsAi_;
     gomoku::ui::Button backButton_;
     gomoku::ui::Button hintButton_;

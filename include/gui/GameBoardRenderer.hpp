@@ -15,7 +15,7 @@ public:
 
     void render(sf::RenderWindow& window) const;
 
-    void setTextures(sf::Texture& boardTexture, sf::Texture& pawn1Texture, sf::Texture& pawn2Texture);
+    void setTextures(sf::Texture& boardTexture, sf::Texture& pawn1Texture, sf::Texture& pawn2Texture, sf::Texture& pawnHintTexture);
     void setBoardView(const gomoku::IBoardView* view) { boardView_ = view; }
 
     static sf::Vector2f isoToScreen(int i, int j, float tileW, float tileH, float centerX, float centerY);
@@ -25,6 +25,7 @@ private:
     sf::Sprite* boardSprite_ = nullptr;
     sf::Sprite* pawn1Sprite_ = nullptr;
     sf::Sprite* pawn2Sprite_ = nullptr;
+    sf::Sprite* pawnHintSprite_ = nullptr;
 };
 
 } // namespace gomoku::gui

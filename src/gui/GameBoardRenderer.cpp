@@ -17,7 +17,8 @@ void GameBoardRenderer::cleanup()
     delete boardSprite_;
     delete pawn1Sprite_;
     delete pawn2Sprite_;
-    boardSprite_ = pawn1Sprite_ = pawn2Sprite_ = nullptr;
+    delete pawnHintSprite_;
+    boardSprite_ = pawn1Sprite_ = pawn2Sprite_ = pawnHintSprite_ = nullptr;
 }
 
 sf::Vector2f GameBoardRenderer::isoToScreen(int i, int j, float tileW, float tileH, float centerX, float centerY)
@@ -27,15 +28,17 @@ sf::Vector2f GameBoardRenderer::isoToScreen(int i, int j, float tileW, float til
     return { centerX + (u - v) * (tileW * 0.5f), centerY + (u + v) * (tileH * 0.5f) };
 }
 
-void GameBoardRenderer::setTextures(sf::Texture& boardTexture, sf::Texture& pawn1Texture, sf::Texture& pawn2Texture)
+void GameBoardRenderer::setTextures(sf::Texture& boardTexture, sf::Texture& pawn1Texture, sf::Texture& pawn2Texture, sf::Texture& pawnHintTexture)
 {
     delete boardSprite_;
     delete pawn1Sprite_;
     delete pawn2Sprite_;
+    delete pawnHintSprite_;
     boardSprite_ = new sf::Sprite(boardTexture);
     pawn1Sprite_ = new sf::Sprite(pawn1Texture);
     pawn2Sprite_ = new sf::Sprite(pawn2Texture);
-    if (!boardSprite_ || !pawn1Sprite_ || !pawn2Sprite_) {
+    pawnHintSprite_ = new sf::Sprite(pawnHintTexture);
+    if (!boardSprite_ || !pawn1Sprite_ || !pawn2Sprite_ || !pawnHintSprite_) {
         std::cerr << "Failed to set textures" << std::endl;
     }
 }

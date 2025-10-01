@@ -32,7 +32,13 @@ GameScene::GameScene(Context& context, bool vsAi)
         boardRenderer_.setTextures(
             context_.resourceManager->getTexture("board"),
             context_.resourceManager->getTexture("pawn1"),
-            context_.resourceManager->getTexture("pawn2"));
+            context_.resourceManager->getTexture("pawn2"),
+            context_.resourceManager->getTexture("pawn_hint"));
+        // Sprite helper dédié (optionnel)
+        if (context_.resourceManager->hasTexture("pawn_hint")) {
+            helperSprite_.setTexture(context_.resourceManager->getTexture("pawn_hint"));
+            helperSpriteReady_ = true;
+        }
     }
 
     rules_ = gomoku::RuleSet();
@@ -77,7 +83,15 @@ void GameScene::onThemeChanged()
     const_cast<gomoku::gui::GameBoardRenderer&>(boardRenderer_).setTextures(
         context_.resourceManager->getTexture("board"),
         context_.resourceManager->getTexture("pawn1"),
-        context_.resourceManager->getTexture("pawn2"));
+        context_.resourceManager->getTexture("pawn2"),
+        context_.resourceManager->getTexture("pawn_hint"));
+    // Rebind texture helper si disponible
+    if (context_.resourceManager->hasTexture("pawn_hint")) {
+        helperSprite_.setTexture(context_.resourceManager->getTexture("pawn_hint"));
+        helperSpriteReady_ = true;
+    } else {
+        helperSpriteReady_ = false;
+    }
 }
 
 bool GameScene::handleInput(sf::Event& event)
@@ -145,6 +159,10 @@ bool GameScene::handleInput(sf::Event& event)
                     if (gameSession_.controller(before.toPlay) == gomoku::Controller::Human) {
                         auto result = gameSession_.playHuman(gomoku::Pos { (uint8_t)i, (uint8_t)j });
                         if (result.ok) {
+                            if (hintEnabled_) {
+                                hintEnabled_ = false;
+                                hintPos_.reset();
+                            }
                             auto snap1 = gameSession_.snapshot();
                             const_cast<gomoku::gui::GameBoardRenderer&>(boardRenderer_).setBoardView(snap1.view);
                             // SFX: pose de pion selon couleur jouée
@@ -194,6 +212,11 @@ void GameScene::update(sf::Time& deltaTime)
         lastAiMs_ = (int)std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
         auto snap = gameSession_.snapshot();
         const_cast<gomoku::gui::GameBoardRenderer&>(boardRenderer_).setBoardView(snap.view);
+        // Désactiver l'overlay helper après le coup IA
+        if (hintEnabled_) {
+            hintEnabled_ = false;
+            hintPos_.reset();
+        }
         // SFX: pose de pion IA (même logique que côté humain: on déduit la couleur depuis toPlay)
         playSfx(snap.toPlay == gomoku::Player::Black ? "place_white" : "place_black", PLACE_PAWN_VOLUME);
         // Capture détectée côté IA ?
@@ -217,6 +240,25 @@ void GameScene::render(sf::RenderTarget& target) const
     }
     // Plateau (cible est la fenêtre; cast suffisant ici)
     const_cast<gomoku::gui::GameBoardRenderer&>(boardRenderer_).render(static_cast<sf::RenderWindow&>(target));
+    // Helper pawn overlay
+    if (hintEnabled_ && hintPos_ && helperSpriteReady_) {
+        const auto size = context_.window->getSize();
+        const float centerX = static_cast<float>(size.x) * 0.5f;
+        const float centerY = static_cast<float>(size.y) * 0.5f;
+        const float tileW = std::min(static_cast<float>(size.x) * 0.8f / 18.f,
+                                     static_cast<float>(size.y) * 0.8f * 2.f / 18.f);
+        const float tileH = tileW * 0.5f;
+    
+        const int i = hintPos_->x;
+        const int j = hintPos_->y;
+        const auto p = gomoku::gui::GameBoardRenderer::isoToScreen(i, j, tileW, tileH, centerX, centerY);
+    
+        float pawnSize = tileW * 0.6f;
+        float scale = pawnSize / static_cast<float>(helperSprite_.getTexture()->getSize().x);
+        helperSprite_.setPosition({ p.x - pawnSize * 0.5f, p.y - pawnSize * 0.5f - 5.f });
+        helperSprite_.setScale(scale, scale);
+        target.draw(helperSprite_);
+    }
     // UI
     backButton_.render(target);
     hintButton_.render(target);
@@ -279,17 +321,17 @@ void GameScene::onBackClicked()
 void GameScene::onHintClicked()
 {
     std::cout << "Hint clicked" << std::endl;
-    if (context_.hintEnabled)
+    // Toggle: si déjà affiché, on masque
+    if (hintEnabled_) {
         return;
-    context_.hintEnabled = true;
-    auto move = gameSession_.hint(450, nullptr);
-    if(!move)
-        return;
-    const gomoku::Move mv = *move;
-    if (mv.pos.isValid()) {
-        std::cout << "Hint: " << mv.pos << std::endl;
-        const_cast<gomoku::gui::GameBoardRenderer&>(boardRenderer_)
     }
+
+    auto result = gameSession_.hint(450);
+    if(!result.mv)
+        return;
+    std::cout << "Hint: " << result.mv->pos << std::endl;
+    hintPos_ = result.mv->pos;
+    hintEnabled_ = true;
 }
 
 } // namespace gomoku::scene
