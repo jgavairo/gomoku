@@ -71,4 +71,29 @@ void ttStore(TranspositionTable& tt, const Board& board, int depth, int score, T
     tt.store(key, depth, score, flag, best);
 }
 
+std::optional<Move> tryImmediateWin(Board& board, const RuleSet& rules, Player toPlay, const std::vector<Move>& candidates)
+{
+    // Early plausibility checks to avoid unnecessary speculative plays
+    const bool plausibleAlign = board.stoneCount(toPlay) >= 4;
+    const auto caps = board.capturedPairs();
+    const int pairs = (toPlay == Player::Black) ? caps.black : caps.white;
+    const bool plausibleCaptureWin = pairs >= 4;
+
+    // Only attempt if at least one path to immediate win is plausible
+    if (!plausibleAlign && !plausibleCaptureWin)
+        return std::nullopt;
+
+    // Try each candidate speculatively
+    for (const auto& m : candidates) {
+        auto pr = board.tryPlay(m, rules);
+        if (!pr.success)
+            continue; // skip illegal candidates, don't abort early
+        const auto st = board.status();
+        board.undo();
+        if (st == GameStatus::WinByAlign || st == GameStatus::WinByCapture)
+            return m;
+    }
+    return std::nullopt;
+}
+
 } // namespace gomoku::search

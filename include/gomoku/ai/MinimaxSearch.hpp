@@ -64,13 +64,7 @@ private:
     // For now the implementation will reuse CandidateGenerator as a base and sort.
     std::vector<Move> orderMoves(const Board& board, const RuleSet& rules, Player toMove, const std::optional<Move>& ttMove) const;
 
-    // Time management: returns true when we should abort the current search (soft stop).
-    bool cutoffByTime(const SearchContext& ctx) const;
-
     // --- Helpers extracted from bestMove for readability ---
-    // Tries the immediate win shortcut if plausible; returns the winning move if found.
-    std::optional<Move> tryImmediateWinShortcut(Board& board, const RuleSet& rules, Player toPlay, const std::vector<Move>& candidates) const;
-
     // Runs one iterative-deepening step at a given depth; fills best, bestScore, pv and updates nodes.
     bool runDepth(int depth, Board& board, const RuleSet& rules, Player toPlay, const std::vector<Move>& rootCandidates, std::optional<Move>& best, int& bestScore, std::vector<Move>& pv, const SearchContext& ctx);
 

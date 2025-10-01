@@ -27,4 +27,9 @@ bool ttProbe(const TranspositionTable& tt, const Board& board, int depth, int al
 // Relies on TT's internal replacement policy (prefer deeper entries).
 void ttStore(TranspositionTable& tt, const Board& board, int depth, int score, TranspositionTable::Flag flag, const std::optional<Move>& best) noexcept;
 
+// Tries to find an immediate winning move from the given candidates.
+// Only checks if plausible (≥4 stones for alignment win, ≥4 captured pairs for capture win).
+// Returns the winning move if found, nullopt otherwise.
+std::optional<Move> tryImmediateWin(Board& board, const RuleSet& rules, Player toPlay, const std::vector<Move>& candidates);
+
 } // namespace gomoku::search
