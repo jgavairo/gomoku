@@ -331,6 +331,12 @@ void GameScene::onHintClicked()
     std::cout << "Hint: " << result.mv->pos << std::endl;
     hintPos_ = result.mv->pos;
     hintEnabled_ = true;
+    if (result.stats) 
+    {
+        std::cout << "  Depth: " << result.stats->depthReached
+                  << ", Nodes: " << result.stats->nodes
+                  << ", TT hits: " << result.stats->ttHits << std::endl;
+    }
 }
 
 } // namespace gomoku::scene
