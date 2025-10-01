@@ -45,20 +45,11 @@ std::optional<Move> MinimaxSearch::bestMove(Board& board, const RuleSet& rules, 
     auto deadline = start + milliseconds(cfg.timeBudgetMs);
     SearchContext ctx { rules, deadline, stats, cfg.nodeCap };
 
-    // Log début de recherche
-    {
-        std::ostringstream oss;
-        oss << "[SEARCH] Début - budget=" << cfg.timeBudgetMs << "ms, prof.max=" << cfg.maxDepthHint
-            << ", toPlay=" << (board.toPlay() == Player::Black ? "Black" : "White");
-        LOG_INFO(oss.str());
-    }
-
     Player toPlay = board.toPlay();
     // Early terminal check
     int terminalScore = 0;
     if (isTerminal(board, /*ply*/ 0, terminalScore)) {
         setStats(stats, start, 0, 0, 0, 0, {});
-        LOG_INFO("[SEARCH] État terminal détecté en racine, aucun coup à jouer");
         return std::nullopt;
     }
 
@@ -66,22 +57,12 @@ std::optional<Move> MinimaxSearch::bestMove(Board& board, const RuleSet& rules, 
 
     if (candidates.empty()) {
         setStats(stats, start, 0, 0, 0, 0, {});
-        LOG_INFO("[SEARCH] Aucun coup candidat disponible");
         return std::nullopt;
-    }
-
-    {
-        std::ostringstream oss;
-        oss << "[SEARCH] Candidats racine: " << candidates.size();
-        LOG_INFO(oss.str());
     }
 
     // 1) Immediate win shortcut (only if situation permits)
     if (auto iw = tryImmediateWinShortcut(board, rules, toPlay, candidates)) {
         setStats(stats, start, /*nodes*/ 1, /*qnodes*/ 0, /*depth*/ 1, /*ttHits*/ 0, { *iw });
-        std::ostringstream oss;
-        oss << "[SEARCH] Gain immédiat détecté: " << *iw;
-        LOG_INFO(oss.str());
         return iw;
     }
 
@@ -94,8 +75,6 @@ std::optional<Move> MinimaxSearch::bestMove(Board& board, const RuleSet& rules, 
     int bestScore = -INF;
 
     for (int depth = 1; depth <= maxDepth; ++depth) {
-        auto depthStart = steady_clock::now();
-        long long nodesBefore = nodes;
         if (!runDepth(depth, board, rules, toPlay, candidates, best, bestScore, pv, ctx))
             break;
         // Synchronize counters if stats is used inside search
@@ -103,35 +82,13 @@ std::optional<Move> MinimaxSearch::bestMove(Board& board, const RuleSet& rules, 
             nodes = stats->nodes;
         }
         setStats(stats, start, nodes, stats ? stats->qnodes : 0, /*depth*/ depth, ttHits, pv);
-        auto elapsedMs = duration_cast<milliseconds>(steady_clock::now() - depthStart).count();
-        long long nodesDepth = (stats ? stats->nodes : nodes) - nodesBefore;
-        long long nps = elapsedMs > 0 ? (nodesDepth * 1000LL) / elapsedMs : nodesDepth;
-        std::ostringstream oss;
-        oss << "[SEARCH] Profondeur=" << depth
-            << ", temps=" << elapsedMs << "ms"
-            << ", nodes=" << nodesDepth
-            << ", NPS=" << nps
-            << ", score=" << bestScore
-            << ", PV=";
-        for (std::size_t i = 0; i < pv.size(); ++i) {
-            oss << (i == 0 ? " " : " ") << pv[i];
-        }
-        LOG_INFO(oss.str());
     }
 
     if (best) {
-        auto totalMs = duration_cast<milliseconds>(steady_clock::now() - start).count();
-        std::ostringstream oss;
-        oss << "[SEARCH] Terminé - meilleur coup=" << *best
-            << ", score=" << bestScore
-            << ", temps total=" << totalMs << "ms"
-            << ", nœuds=" << nodes;
-        LOG_INFO(oss.str());
         return best;
     }
 
     setStats(stats, start, 0, 0, 0, 0, {});
-    LOG_INFO("[SEARCH] Aucune solution trouvée dans les contraintes de temps/profondeur");
     return std::nullopt;
 }
 
@@ -659,11 +616,6 @@ bool MinimaxSearch::runDepth(int depth, Board& board, const RuleSet& rules, Play
     best = depthBest;
     bestScore = depthBestScore;
     pv = depthPV;
-    {
-        std::ostringstream oss;
-        oss << "[SEARCH] Sélection profondeur " << depth << ": best=" << *best << ", score=" << bestScore;
-        LOG_INFO(oss.str());
-    }
     ttStore(board, depth, bestScore, TranspositionTable::Flag::Exact, best);
     return true;
 }
