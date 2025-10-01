@@ -27,6 +27,10 @@ bool ResourceManager::init()
         return false;
     if (!loadTexture("pawn2", texturePath_ + "blackPawn.png"))
         return false;
+    if (!loadTexture("pawn_hint", texturePath_ + "helperPawn.png"))
+        return false;
+    if (!loadTexture("hint_button", texturePath_ + "ui/help_button.png"))
+        return false;
     if (!loadTexture("play_button", texturePath_ + "ui/play_button.png"))
         return false;
     if (!loadTexture("settings_button", texturePath_ + "ui/settings_button.png"))
@@ -75,6 +79,8 @@ bool ResourceManager::setTexturePackage(const std::string& theme)
         {"board", "board.png"},
         {"pawn1", "whitePawn.png"},
         {"pawn2", "blackPawn.png"},
+        {"pawn_hint", "helperPawn.png"},
+        {"hint_button", "ui/help_button.png"},
         {"play_button", "ui/play_button.png"},
         {"settings_button", "ui/settings_button.png"},
         {"exit_button", "ui/exit_button.png"},

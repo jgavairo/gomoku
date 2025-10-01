@@ -3,6 +3,7 @@
 #include "audio/Volumes.hpp"
 #include <chrono>
 #include <cmath>
+#include <iostream>
 
 namespace gomoku::scene {
 
@@ -18,6 +19,13 @@ GameScene::GameScene(Context& context, bool vsAi)
         backButton_.setTexture(&context_.resourceManager->getTexture("back_button"));
     backButton_.setScale(1.0f);
     backButton_.setCallback([this]() { onBackClicked(); });
+
+
+    hintButton_.setPosition({ 1780, 880 });
+    if (context_.resourceManager && context_.resourceManager->hasTexture("hint_button"))
+        hintButton_.setTexture(&context_.resourceManager->getTexture("hint_button"));
+    hintButton_.setScale(0.1f);
+    hintButton_.setCallback([this]() { onHintClicked(); });
 
     // Initialisation du renderer de plateau
     if (context_.resourceManager) {
@@ -75,6 +83,9 @@ void GameScene::onThemeChanged()
 bool GameScene::handleInput(sf::Event& event)
 {
     if (context_.window && backButton_.handleInput(event, *context_.window))
+        return true;
+
+    if (context_.window && hintButton_.handleInput(event, *context_.window))
         return true;
 
     // Prévisualisation temporairement désactivée pour debug
@@ -170,6 +181,7 @@ bool GameScene::handleInput(sf::Event& event)
 void GameScene::update(sf::Time& deltaTime)
 {
     backButton_.update(deltaTime);
+    hintButton_.update(deltaTime);
 
     // Run pending AI move only after at least one frame has been presented
     if (pendingAi_ && framePresented_) {
@@ -207,7 +219,7 @@ void GameScene::render(sf::RenderTarget& target) const
     const_cast<gomoku::gui::GameBoardRenderer&>(boardRenderer_).render(static_cast<sf::RenderWindow&>(target));
     // UI
     backButton_.render(target);
-
+    hintButton_.render(target);
     // HUD: toPlay, captures, last move, AI time
     auto snap = gameSession_.snapshot();
     if (fontOk_) {
@@ -262,6 +274,22 @@ void GameScene::onBackClicked()
     context_.showMainMenu = true;
     std::string musicPath = std::string("assets/audio/") + context_.theme + "/menu_theme.ogg";
 	playMusic(musicPath.c_str(), true, MUSIC_VOLUME);
+}
+
+void GameScene::onHintClicked()
+{
+    std::cout << "Hint clicked" << std::endl;
+    if (context_.hintEnabled)
+        return;
+    context_.hintEnabled = true;
+    auto move = gameSession_.hint(450, nullptr);
+    if(!move)
+        return;
+    const gomoku::Move mv = *move;
+    if (mv.pos.isValid()) {
+        std::cout << "Hint: " << mv.pos << std::endl;
+        const_cast<gomoku::gui::GameBoardRenderer&>(boardRenderer_)
+    }
 }
 
 } // namespace gomoku::scene
