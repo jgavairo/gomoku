@@ -37,6 +37,11 @@ std::optional<Move> MinimaxSearch::bestMove(Board& board, const RuleSet& rules, 
     SearchContext ctx { rules, deadline, stats, cfg.nodeCap };
 
     Player toPlay = board.toPlay();
+
+    // Initialize stats if provided
+    if (stats)
+        stats->clear();
+
     // Early terminal check
     int terminalScore = 0;
     if (search::isTerminal(board, /*ply*/ 0, terminalScore)) {
@@ -53,24 +58,25 @@ std::optional<Move> MinimaxSearch::bestMove(Board& board, const RuleSet& rules, 
 
     // 1) Immediate win shortcut (only if situation permits)
     if (auto iw = tryImmediateWinShortcut(board, rules, toPlay, candidates)) {
-        if (stats)
-            stats->update(start, /*nodes*/ 1, /*qnodes*/ 0, /*depth*/ 1, /*ttHits*/ 0, { *iw });
+        if (stats) {
+            ctx.recordNode(); // Count the immediate win node
+            stats->finalize(start, /*depth*/ 1, { *iw });
+        }
         return iw;
     }
 
-    // 2) Iterative deepening skeleton using the compact helper
+    // 2) Iterative deepening skeleton
     std::optional<Move> best;
     std::vector<Move> pv;
-    long long nodes = 0;
-    int ttHits = 0;
     int maxDepth = cfg.maxDepthHint;
     int bestScore = -search::INF;
 
     for (int depth = 1; depth <= maxDepth; ++depth) {
         if (!runDepth(depth, board, rules, toPlay, candidates, best, bestScore, pv, ctx))
             break;
+        // Finalize metadata for this iteration (counters already updated via ctx.recordNode())
         if (stats)
-            stats->update(start, nodes, /*qnodes*/ 0, /*depth*/ depth, ttHits, pv);
+            stats->finalize(start, depth, pv);
     }
 
     if (best) {
@@ -158,7 +164,7 @@ std::vector<Move> MinimaxSearch::orderMoves(const Board& board, const RuleSet& r
 bool MinimaxSearch::cutoffByTime(const SearchContext& ctx) const
 {
     // TODO: Ajouter nodeCap check si besoin.
-    return std::chrono::steady_clock::now() >= ctx.deadline;
+    return ctx.isTimeUp();
 }
 
 // --- Helpers extracted from bestMove ---
@@ -202,7 +208,8 @@ bool MinimaxSearch::runDepth(int depth, Board& board, const RuleSet& rules, Play
     bool ttHit = search::ttProbe(tt, board, depth, -search::INF, search::INF, ttScore, ttRootMove, ttFlag);
 
     if (ttHit) {
-        const char* flagStr = ttFlag == TranspositionTable::Flag::Exact ? "Exact" : ttFlag == TranspositionTable::Flag::Lower ? "Lower"
+        ctx.recordTTHit();
+        std::string flagStr = ttFlag == TranspositionTable::Flag::Exact ? "Exact" : ttFlag == TranspositionTable::Flag::Lower ? "Lower"
                                                                                                                               : "Upper";
         Logger::getInstance().info("[TT] Hit at depth {} - score: {}, flag: {}, move: {}",
             depth, ttScore, flagStr,

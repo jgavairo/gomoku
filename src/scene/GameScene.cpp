@@ -1,6 +1,6 @@
 #include "scene/GameScene.hpp"
-#include <algorithm>
 #include "audio/Volumes.hpp"
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <iostream>
@@ -19,7 +19,6 @@ GameScene::GameScene(Context& context, bool vsAi)
         backButton_.setTexture(&context_.resourceManager->getTexture("back_button"));
     backButton_.setScale(1.0f);
     backButton_.setCallback([this]() { onBackClicked(); });
-
 
     hintButton_.setPosition({ 1780, 880 });
     if (context_.resourceManager && context_.resourceManager->hasTexture("hint_button"))
@@ -74,10 +73,7 @@ void GameScene::onThemeChanged()
     if (!context_.resourceManager)
         return;
     // Rebind textures sur le renderer
-    const_cast<gomoku::gui::GameBoardRenderer&>(boardRenderer_).setTextures(
-        context_.resourceManager->getTexture("board"),
-        context_.resourceManager->getTexture("pawn1"),
-        context_.resourceManager->getTexture("pawn2"));
+    const_cast<gomoku::gui::GameBoardRenderer&>(boardRenderer_).setTextures(context_.resourceManager->getTexture("board"), context_.resourceManager->getTexture("pawn1"), context_.resourceManager->getTexture("pawn2"));
 }
 
 bool GameScene::handleInput(sf::Event& event)
@@ -273,7 +269,7 @@ void GameScene::onBackClicked()
     context_.inGame = false;
     context_.showMainMenu = true;
     std::string musicPath = std::string("assets/audio/") + context_.theme + "/menu_theme.ogg";
-	playMusic(musicPath.c_str(), true, MUSIC_VOLUME);
+    playMusic(musicPath.c_str(), true, MUSIC_VOLUME);
 }
 
 void GameScene::onHintClicked()
@@ -282,13 +278,18 @@ void GameScene::onHintClicked()
     if (context_.hintEnabled)
         return;
     context_.hintEnabled = true;
-    auto move = gameSession_.hint(450, nullptr);
-    if(!move)
+    auto result = gameSession_.hint(450);
+    if (!result.ok || !result.mv)
         return;
-    const gomoku::Move mv = *move;
+    const gomoku::Move& mv = *result.mv;
     if (mv.pos.isValid()) {
         std::cout << "Hint: " << mv.pos << std::endl;
-        const_cast<gomoku::gui::GameBoardRenderer&>(boardRenderer_)
+        if (result.stats) {
+            std::cout << "  Depth: " << result.stats->depthReached
+                      << ", Nodes: " << result.stats->nodes
+                      << ", TT hits: " << result.stats->ttHits << std::endl;
+        }
+        // TODO: Add visual hint display to GameBoardRenderer
     }
 }
 
