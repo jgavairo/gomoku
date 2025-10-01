@@ -1,9 +1,8 @@
 // MinimaxSearch.cpp
 #include "gomoku/ai/MinimaxSearch.hpp"
 #include "gomoku/ai/CandidateGenerator.hpp"
+#include "gomoku/ai/SearchStats.hpp"
 #include "gomoku/core/Board.hpp"
-#include "gomoku/core/BoardState.hpp"
-#include "gomoku/core/CaptureEngine.hpp"
 #include "util/Logger.hpp"
 #include <algorithm>
 #include <functional>
@@ -77,11 +76,7 @@ std::optional<Move> MinimaxSearch::bestMove(Board& board, const RuleSet& rules, 
     for (int depth = 1; depth <= maxDepth; ++depth) {
         if (!runDepth(depth, board, rules, toPlay, candidates, best, bestScore, pv, ctx))
             break;
-        // Synchronize counters if stats is used inside search
-        if (stats) {
-            nodes = stats->nodes;
-        }
-        setStats(stats, start, nodes, stats ? stats->qnodes : 0, /*depth*/ depth, ttHits, pv);
+        setStats(stats, start, nodes, /*qnodes*/ 0, /*depth*/ depth, ttHits, pv);
     }
 
     if (best) {
@@ -101,25 +96,6 @@ std::vector<Move> MinimaxSearch::orderedMovesPublic(const Board& board, const Ru
     return moves;
 }
 
-static inline bool isMateScore(int s)
-{
-    return std::abs(s) >= (900'000 - 10000);
-}
-
-static inline int packMateForTT(int score, int ply)
-{
-    if (isMateScore(score))
-        return (score > 0) ? (score + ply) : (score - ply);
-    return score;
-}
-
-static inline int unpackMateFromTT(int score, int ply)
-{
-    if (isMateScore(score))
-        return (score > 0) ? (score - ply) : (score + ply);
-    return score;
-}
-
 // --- Stubs for private methods declared in MinimaxSearch.hpp ---
 
 // Négamax récursif (Gomoku) avec extensions possibles plus tard (alpha-bêta/PVS/TT).
@@ -132,111 +108,16 @@ static inline int unpackMateFromTT(int score, int ply)
 // TODO (palier 3): implémentation depth-limitée simple (sans alpha-bêta), puis ajouter alpha-bêta/PVS.
 int MinimaxSearch::negamax(Board& board, int depth, int alpha, int beta, int ply, std::vector<Move>& pvOut, const SearchContext& ctx)
 {
+    // TODO: Terminal check, éval en feuille, génération + boucle enfants (tryPlay/undo), build PV.
+    // TODO (plus tard): alpha-bêta/PVS, TT probe/store, extensions sur menaces (quatre ouvert, capture gagnante), LMR ciblé.
+    (void)board;
+    (void)depth;
+    (void)alpha;
+    (void)beta;
+    (void)ply;
+    (void)ctx;
     pvOut.clear();
-
-    // Count a visited (tree) node
-    onNodeVisited(ctx.stats);
-
-    // 1) Timeout ?
-    if (cutoffByTime(ctx))
-        return evaluate(board, board.toPlay());
-
-    // 2) Terminal node ?
-    int termScore;
-    if (isTerminal(board, ply, termScore))
-        return termScore;
-
-    // 3) Leaf node (depth 0) → qsearch
-    if (depth == 0)
-        return qsearch(board, alpha, beta, ply, ctx);
-
-    // 3.5) Transposition table probe for bounds and move ordering
-    std::optional<Move> ttMove;
-    int ttScore = 0;
-    TranspositionTable::Flag ttFlag = TranspositionTable::Flag::Exact;
-    const int alphaOrig = alpha;
-    const int betaOrig = beta;
-    if (ttProbe(board, depth, alpha, beta, ttScore, ttMove, ttFlag)) {
-        if (ctx.stats)
-            ++ctx.stats->ttHits;
-        ttScore = unpackMateFromTT(ttScore, ply); // <<< AJOUT
-        if (ttFlag == TranspositionTable::Flag::Exact)
-            return ttScore;
-        if (ttFlag == TranspositionTable::Flag::Lower) {
-            alpha = std::max(alpha, ttScore);
-            if (alpha >= beta)
-                return ttScore;
-        } else { // Upper
-            beta = std::min(beta, ttScore);
-            if (alpha >= beta)
-                return ttScore;
-        }
-    }
-
-    // 4) Move generation (prefer ttMove first if available)
-    auto moves = orderMoves(board, ctx.rules, board.toPlay(), ttMove);
-    if (moves.empty())
-        return evaluate(board, board.toPlay());
-
-    int bestScore = -INF;
-    std::vector<Move> bestPV;
-    bool firstChild = true;
-
-    for (const auto& m : moves) {
-        auto pr = board.tryPlay(m, ctx.rules);
-        if (!pr.success)
-            continue;
-
-        std::vector<Move> childPV;
-        int score;
-
-        if (firstChild) {
-            // First child: full window
-            score = -negamax(board, depth - 1, -beta, -alpha, ply + 1, childPV, ctx);
-            firstChild = false;
-        } else {
-            // Narrow window (scout search)
-            score = -negamax(board, depth - 1, -alpha - 1, -alpha, ply + 1, childPV, ctx);
-
-            // If it failed high, re-search with full window
-            if (alpha < score && score < beta) {
-                score = -negamax(board, depth - 1, -beta, -alpha, ply + 1, childPV, ctx);
-            }
-        }
-
-        board.undo();
-
-        if (score > bestScore) {
-            bestScore = score;
-            bestPV.clear();
-            bestPV.push_back(m);
-            bestPV.insert(bestPV.end(), childPV.begin(), childPV.end());
-        }
-
-        if (bestScore > alpha)
-            alpha = bestScore;
-
-        if (alpha >= beta)
-            break; // beta cutoff
-    }
-
-    pvOut = bestPV;
-
-    // Store into TT
-    TranspositionTable::Flag storeFlag = TranspositionTable::Flag::Exact;
-    if (bestScore <= alphaOrig)
-        storeFlag = TranspositionTable::Flag::Upper;
-    else if (bestScore >= betaOrig)
-        storeFlag = TranspositionTable::Flag::Lower;
-
-    std::optional<Move> bestMoveOpt;
-    if (!bestPV.empty())
-        bestMoveOpt = bestPV.front();
-
-    // <<< AJOUT : pack avant store
-    ttStore(board, depth, packMateForTT(bestScore, ply), storeFlag, bestMoveOpt);
-
-    return bestScore;
+    return 0;
 }
 
 // Recherche de quiétude (Gomoku):
@@ -249,62 +130,13 @@ int MinimaxSearch::negamax(Board& board, int depth, int alpha, int beta, int ply
 // TODO: stand-pat (éval statique), delta pruning adapté aux marges de menaces, génération coups tactiques.
 int MinimaxSearch::qsearch(Board& board, int alpha, int beta, int ply, const SearchContext& ctx)
 {
-    // Count a visited quiescence node
-    onQNodeVisited(ctx.stats);
-    // 1) Timeout ?
-    if (cutoffByTime(ctx))
-        return evaluate(board, board.toPlay());
-
-    // 2) Stand pat (évaluation actuelle)
-    int standPat = evaluate(board, board.toPlay());
-
-    if (standPat >= beta)
-        return standPat;
-    if (standPat > alpha)
-        alpha = standPat;
-
-    // 3) Génération coups tactiques uniquement
-    auto moves = CandidateGenerator::generate(board, ctx.rules, board.toPlay(),
-        CandidateConfig {});
-    std::vector<Move> tacticalMoves;
-    tacticalMoves.reserve(moves.size());
-
-    for (const auto& m : moves) {
-        // Test rapide : on ne garde que les coups qui
-        //  - capturent,
-        //  - ou créent/bloquent un alignement de 5.
-        if (board.wouldCapture(m)) {
-            tacticalMoves.push_back(m);
-            continue;
-        }
-
-        // On simule le coup pour voir s’il termine la partie
-        auto pr = board.tryPlay(m, ctx.rules);
-        if (pr.success) {
-            GameStatus st = board.status();
-            board.undo();
-            if (st == GameStatus::WinByAlign || st == GameStatus::WinByCapture) {
-                tacticalMoves.push_back(m);
-            }
-        }
-    }
-
-    // 4) Explorer les coups tactiques
-    for (const auto& m : tacticalMoves) {
-        auto pr = board.tryPlay(m, ctx.rules);
-        if (!pr.success)
-            continue;
-
-        int score = -qsearch(board, -beta, -alpha, ply + 1, ctx);
-        board.undo();
-
-        if (score >= beta)
-            return score;
-        if (score > alpha)
-            alpha = score;
-    }
-
-    return alpha;
+    // TODO: Stand pat, delta pruning, génération coups tactiques, tryPlay/undo, récursif, alpha/beta update.
+    (void)board;
+    (void)alpha;
+    (void)beta;
+    (void)ply;
+    (void)ctx;
+    return 0;
 }
 
 // Évaluation statique rapide d'une position (Gomoku):
@@ -457,16 +289,14 @@ int MinimaxSearch::evaluate(const Board& board, Player perspective) const
 //  - 5) Extensions de menaces (étendre 3→4, 4→5) près du front,
 //  - 6) Heuristique géométrique (proximité des pierres existantes), killers/history en option.
 // TODO: placer ttMove en tête si dispo, puis classer par criticité des menaces/captures; plafonner à N coups pour maitriser le branching.
-std::vector<Move> MinimaxSearch::orderMoves(const Board& board, const RuleSet& rules, Player toMove, const std::optional<Move>& ttMove) const
+std::vector<Move> MinimaxSearch::orderMoves(const Board& board,
+    const RuleSet& rules,
+    Player toMove,
+    const std::optional<Move>& ttMove) const
 {
-    auto mv = orderedMovesPublic(board, rules, toMove);
-    if (ttMove) {
-        auto it = std::find(mv.begin(), mv.end(), *ttMove);
-        if (it != mv.end()) {
-            std::rotate(mv.begin(), it, std::next(it)); // move it to front
-        }
-    }
-    return mv;
+    // TODO: Placer ttMove en tête, réordonner par menaces/captures Gomoku, limiter à un top-N.
+    (void)ttMove;
+    return orderedMovesPublic(board, rules, toMove);
 }
 
 // Renvoie true si le temps est écoulé ou nodeCap atteint (soft stop).
@@ -503,25 +333,14 @@ bool MinimaxSearch::isTerminal(const Board& board, int ply, int& outScore) const
 // TODO (plus tard): clé zobrist, profondeur, flags (Exact/Lower/Upper), meilleur coup pour l’ordre.
 bool MinimaxSearch::ttProbe(const Board& board, int depth, int alpha, int beta, int& outScore, std::optional<Move>& ttMove, TranspositionTable::Flag& outFlag) const
 {
+    // TODO: Chercher dans tt, vérifier profondeur, renvoyer score/flag/move si applicable.
+    (void)board;
+    (void)depth;
     (void)alpha;
     (void)beta;
-    const uint64_t key = board.zobristKey();
-    auto* e = tt.probe(key);
-    if (!e || e->key != key)
-        return false;
-
-    // Always expose stored best move if any
-    if (e->best.pos.x < BOARD_SIZE && e->best.pos.y < BOARD_SIZE)
-        ttMove = e->best;
-    else
-        ttMove.reset();
-
-    if (e->depth >= depth) {
-        outScore = e->score;
-        outFlag = e->flag;
-        return true; // usable bound
-    }
-    // Shallow hit: not a usable bound for cutoff
+    (void)outScore;
+    (void)ttMove;
+    (void)outFlag;
     return false;
 }
 
@@ -529,8 +348,12 @@ bool MinimaxSearch::ttProbe(const Board& board, int depth, int alpha, int beta, 
 // TODO (plus tard): politique de remplacement (plus profond/plus récent), correction des scores de mate pour l’indexation.
 void MinimaxSearch::ttStore(const Board& board, int depth, int score, TranspositionTable::Flag flag, const std::optional<Move>& best)
 {
-    const uint64_t key = board.zobristKey();
-    tt.store(key, depth, score, flag, best);
+    // TODO: Calculer zobrist, remplir l'entrée, politique de remplacement.
+    (void)board;
+    (void)depth;
+    (void)score;
+    (void)flag;
+    (void)best;
 }
 
 // --- Helpers extracted from bestMove ---
@@ -591,13 +414,6 @@ bool MinimaxSearch::runDepth(int depth, Board& board, const RuleSet& rules, Play
         int childScore = negamax(board, depth - 1, -beta, -alpha, /*ply*/ 1, childPV, ctx);
         int score = -childScore;
         board.undo();
-
-        // Log score obtenu pour ce coup racine
-        {
-            std::ostringstream oss;
-            oss << "[SEARCH] root move " << m << " -> score=" << score << ", depth=" << depth;
-            LOG_DEBUG(oss.str());
-        }
 
         if (score > depthBestScore) {
             depthBestScore = score;
