@@ -14,3 +14,6 @@ compile_commands.json
 .vscode/
 .idea/
 logs/
+
+# Generated desktop file (from template)
+desktop/gomoku.desktop

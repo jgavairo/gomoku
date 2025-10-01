@@ -10,9 +10,16 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 DESKTOP_DIR="$SCRIPT_DIR"
 BIN_PATH="$PROJECT_DIR/bin/Gomoku"
 ICON_DEST="$DESKTOP_DIR/gomicon.png"
+DESKTOP_TEMPLATE="$DESKTOP_DIR/gomoku.desktop.template"
 DESKTOP_FILE="$DESKTOP_DIR/gomoku.desktop"
 
 echo "[INSTALL-DESKTOP] Setting up desktop integration"
+
+# Vérifier que le template existe
+if [ ! -f "$DESKTOP_TEMPLATE" ]; then
+    echo "[INSTALL-DESKTOP] Error: Template not found at $DESKTOP_TEMPLATE"
+    exit 1
+fi
 
 # Vérifier que l'exécutable existe
 if [ ! -f "$BIN_PATH" ]; then
@@ -30,21 +37,15 @@ fi
 
 echo "[INSTALL-DESKTOP] Icon found: $ICON_DEST"
 
-# Mettre à jour le fichier .desktop avec les chemins absolus
-echo "[INSTALL-DESKTOP] Configuring launcher..."
-sed -i "s|Exec=.*|Exec=$BIN_PATH|g" "$DESKTOP_FILE"
-sed -i "s|Icon=.*|Icon=$ICON_DEST|g" "$DESKTOP_FILE"
-sed -i "s|Path=.*|Path=$PROJECT_DIR|g" "$DESKTOP_FILE"
-
-# Ajouter Path si elle n'existe pas
-if ! grep -q "^Path=" "$DESKTOP_FILE"; then
-    sed -i "/^Icon=.*$/a Path=$PROJECT_DIR" "$DESKTOP_FILE"
-fi
+# Générer le fichier .desktop depuis le template
+echo "[INSTALL-DESKTOP] Generating launcher from template..."
+sed "s|{{BIN_PATH}}|$BIN_PATH|g; s|{{ICON_PATH}}|$ICON_DEST|g; s|{{PROJECT_DIR}}|$PROJECT_DIR|g" \
+    "$DESKTOP_TEMPLATE" > "$DESKTOP_FILE"
 
 # Rendre le fichier .desktop exécutable
 chmod +x "$DESKTOP_FILE"
 
-echo "[INSTALL-DESKTOP] Desktop file configured: $DESKTOP_FILE"
+echo "[INSTALL-DESKTOP] Desktop file generated: $DESKTOP_FILE"
 
 # Copier le fichier .desktop vers les emplacements appropriés
 USER_DESKTOP_DIR="$HOME/Desktop"

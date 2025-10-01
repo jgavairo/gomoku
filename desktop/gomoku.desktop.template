@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Gomoku
+Comment=Strategic board game - Align 5 stones to win
+Exec={{BIN_PATH}}
+Icon={{ICON_PATH}}
+Path={{PROJECT_DIR}}
+Terminal=false
+Categories=Game;StrategyGame;
+Keywords=gomoku;five-in-a-row;board;game;strategy;
+StartupNotify=true
+StartupWMClass=Gomoku
