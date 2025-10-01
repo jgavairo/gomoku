@@ -47,7 +47,7 @@ public:
     void reset(Player start = Player::Black);
 
     // Utilities
-    std::optional<Move> hint(int timeMs, SearchStats* outStats = nullptr) const;
+    GamePlayResult hint(int timeMs = 450) const;
 
     // Expose underlying board view (read-only)
     const IBoardView& board() const { return gameService_->getBoard(); }

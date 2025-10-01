@@ -107,17 +107,19 @@ CaptureCount GameService::getCaptureCount() const
     return board_->capturedPairs();
 }
 
-std::optional<Move> GameService::getAIMove(int timeMs)
+std::optional<Move> GameService::getAIMove(int timeMs, SearchStats* outStats)
 {
     if (!searchEngine_) {
+        if (outStats)
+            outStats->clear();
         return std::nullopt;
     }
 
     SearchStats stats;
     auto move = searchEngine_->suggestMove(*board_, rules_, timeMs, &stats);
 
-    // Store stats for debugging/analysis
-    // Could be exposed through a getLastAIStats() method
+    if (outStats)
+        *outStats = stats;
 
     return move;
 }

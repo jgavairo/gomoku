@@ -24,14 +24,7 @@ bool isTerminal(const Board& board, int ply, int& outScore) noexcept
     return false;
 }
 
-bool ttProbe(const TranspositionTable& tt,
-    const Board& board,
-    int depth,
-    int alpha,
-    int beta,
-    int& outScore,
-    std::optional<Move>& ttMove,
-    TranspositionTable::Flag& outFlag) noexcept
+bool ttProbe(const TranspositionTable& tt, const Board& board, int depth, int alpha, int beta, int& outScore, std::optional<Move>& ttMove, TranspositionTable::Flag& outFlag) noexcept
 {
     // Probe by Zobrist key; if depth is sufficient, return bound/value and best move when present.
     const uint64_t key = board.zobristKey();
@@ -71,12 +64,7 @@ bool ttProbe(const TranspositionTable& tt,
     return false;
 }
 
-void ttStore(TranspositionTable& tt,
-    const Board& board,
-    int depth,
-    int score,
-    TranspositionTable::Flag flag,
-    const std::optional<Move>& best) noexcept
+void ttStore(TranspositionTable& tt, const Board& board, int depth, int score, TranspositionTable::Flag flag, const std::optional<Move>& best) noexcept
 {
     // Store by Zobrist key; rely on TT's internal replacement policy (prefer deeper entries).
     const uint64_t key = board.zobristKey();

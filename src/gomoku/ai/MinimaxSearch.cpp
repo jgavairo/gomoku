@@ -17,18 +17,6 @@ namespace gomoku {
 namespace {
     using Clock = std::chrono::steady_clock;
 
-    inline void setStats(SearchStats* stats, Clock::time_point start, long long nodes, long long qnodes, int depth, int ttHits, const std::vector<Move>& pv)
-    {
-        if (!stats)
-            return;
-        stats->nodes = nodes;
-        stats->qnodes = qnodes;
-        stats->depthReached = depth;
-        stats->timeMs = (int)std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - start).count();
-        stats->ttHits = ttHits;
-        stats->principalVariation = pv;
-    }
-
     // Generate root candidates with fallback to legal moves
     inline std::vector<Move> genRootCandidates(const Board& board, const RuleSet& rules, Player toPlay)
     {
@@ -52,20 +40,21 @@ std::optional<Move> MinimaxSearch::bestMove(Board& board, const RuleSet& rules, 
     // Early terminal check
     int terminalScore = 0;
     if (search::isTerminal(board, /*ply*/ 0, terminalScore)) {
-        setStats(stats, start, 0, 0, 0, 0, {});
+        SearchStats::setEmpty(stats, start);
         return std::nullopt;
     }
 
     std::vector<Move> candidates = genRootCandidates(board, rules, toPlay);
 
     if (candidates.empty()) {
-        setStats(stats, start, 0, 0, 0, 0, {});
+        SearchStats::setEmpty(stats, start);
         return std::nullopt;
     }
 
     // 1) Immediate win shortcut (only if situation permits)
     if (auto iw = tryImmediateWinShortcut(board, rules, toPlay, candidates)) {
-        setStats(stats, start, /*nodes*/ 1, /*qnodes*/ 0, /*depth*/ 1, /*ttHits*/ 0, { *iw });
+        if (stats)
+            stats->update(start, /*nodes*/ 1, /*qnodes*/ 0, /*depth*/ 1, /*ttHits*/ 0, { *iw });
         return iw;
     }
 
@@ -80,14 +69,15 @@ std::optional<Move> MinimaxSearch::bestMove(Board& board, const RuleSet& rules, 
     for (int depth = 1; depth <= maxDepth; ++depth) {
         if (!runDepth(depth, board, rules, toPlay, candidates, best, bestScore, pv, ctx))
             break;
-        setStats(stats, start, nodes, /*qnodes*/ 0, /*depth*/ depth, ttHits, pv);
+        if (stats)
+            stats->update(start, nodes, /*qnodes*/ 0, /*depth*/ depth, ttHits, pv);
     }
 
     if (best) {
         return best;
     }
 
-    setStats(stats, start, 0, 0, 0, 0, {});
+    SearchStats::setEmpty(stats, start);
     return std::nullopt;
 }
 

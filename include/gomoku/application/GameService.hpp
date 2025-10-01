@@ -44,9 +44,8 @@ public:
     const RuleSet& getRules() const { return rules_; }
 
     // AI integration
-    std::optional<Move> getAIMove(int timeMs = 450);
+    std::optional<Move> getAIMove(int timeMs = 450, SearchStats* outStats = nullptr);
     void setSearchEngine(std::unique_ptr<ISearchEngine> engine);
-
 
 private:
     // Core game state

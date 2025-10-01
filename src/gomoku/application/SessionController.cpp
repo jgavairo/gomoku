@@ -55,7 +55,7 @@ GamePlayResult SessionController::playHuman(Pos p)
 GamePlayResult SessionController::playAI(int timeMs)
 {
     SearchStats st {};
-    auto bm = gameService_->getAIMove(timeMs);
+    auto bm = gameService_->getAIMove(timeMs, &st);
     if (!bm)
         return { false, "No AI move", std::nullopt, st };
     auto res = gameService_->makeMove(*bm);
@@ -87,13 +87,13 @@ void SessionController::reset(Player start)
     last_.reset();
 }
 
-std::optional<Move> SessionController::hint(int timeMs, SearchStats* outStats) const
+GamePlayResult SessionController::hint(int timeMs) const
 {
     SearchStats st {};
-    auto mv = gameService_->getAIMove(timeMs);
-    if (outStats)
-        *outStats = st; // currently empty stats; extend GameService to expose stats
-    return mv;
+    auto mv = gameService_->getAIMove(timeMs, &st);
+    if (!mv)
+        return { false, "No hint available", std::nullopt, st };
+    return { true, {}, mv, st };
 }
 
 } // namespace gomoku

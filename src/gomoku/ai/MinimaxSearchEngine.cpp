@@ -5,17 +5,11 @@
 
 namespace gomoku::ai {
 
-MinimaxSearchEngine::MinimaxSearchEngine()
-    : searchImpl_(SearchConfig {})
-    , config_ {}
-{
-}
+MinimaxSearchEngine::MinimaxSearchEngine(): searchImpl_(SearchConfig {}), config_ {}
+{}
 
-MinimaxSearchEngine::MinimaxSearchEngine(const SearchConfig& config)
-    : searchImpl_(config)
-    , config_(config)
-{
-}
+MinimaxSearchEngine::MinimaxSearchEngine(const SearchConfig& config): searchImpl_(config), config_(config)
+{}
 
 void MinimaxSearchEngine::setTimeLimit(int milliseconds)
 {
@@ -35,10 +29,7 @@ void MinimaxSearchEngine::setTranspositionTableSize(size_t bytes)
     searchImpl_.setTranspositionTableSize(bytes);
 }
 
-std::optional<Move> MinimaxSearchEngine::findBestMove(
-    const IBoardView& board,
-    const RuleSet& rules,
-    SearchStats* stats)
+std::optional<Move> MinimaxSearchEngine::findBestMove( const IBoardView& board, const RuleSet& rules, SearchStats* stats)
 {
     // Convert IBoardView to concrete Board for MinimaxSearch class
     Board concreteBoard = boardFromView(board);
@@ -50,11 +41,7 @@ std::optional<Move> MinimaxSearchEngine::findBestMove(
     return result;
 }
 
-std::optional<Move> MinimaxSearchEngine::suggestMove(
-    const IBoardView& board,
-    const RuleSet& rules,
-    int timeMs,
-    SearchStats* stats)
+std::optional<Move> MinimaxSearchEngine::suggestMove( const IBoardView& board, const RuleSet& rules, int timeMs, SearchStats* stats)
 {
     int oldTimeMs = config_.timeBudgetMs;
     searchImpl_.setTimeBudgetMs(timeMs);
