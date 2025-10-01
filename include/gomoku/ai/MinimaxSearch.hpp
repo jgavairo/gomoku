@@ -40,7 +40,7 @@ public:
     void clearTranspositionTable() { tt.resizeBytes(cfg.ttBytes); }
 
     // Lightweight public helpers for tooling/analysis
-    int evaluatePublic(const Board& board, Player perspective) const { return evaluate(board, perspective); }
+    int evaluatePublic(const Board& board, Player perspective) const;
     std::vector<Move> orderedMovesPublic(const Board& board, const RuleSet& rules, Player toPlay) const;
 
 private:
@@ -51,10 +51,6 @@ private:
         SearchStats* stats { nullptr };
         unsigned long long nodeCap { 0 };
     };
-    // --- Constants for search scoring ---
-    static constexpr int INF = 1'000'000; // Generic infinity bound for alpha-beta
-    static constexpr int MATE_SCORE = 900'000; // Base score for mate-like terminal outcomes
-
     // --- Core search primitives (signatures only) ---
 
     // Negamax with alpha-beta pruning and PVS. Returns best score and fills PV.
@@ -65,43 +61,18 @@ private:
     // - stats: optional collector for node/qnode counters
     // - pvOut: principal variation to be populated with best line
     // - deadline: stop time for time management
-    int negamax(Board& board,
-        int depth,
-        int alpha,
-        int beta,
-        int ply,
-        std::vector<Move>& pvOut,
-        const SearchContext& ctx);
+    int negamax(Board& board, int depth, int alpha, int beta, int ply, std::vector<Move>& pvOut, const SearchContext& ctx);
 
     // Quiescence search to stabilize evaluations in tactical positions.
     // Searches only tactical moves (captures/menaces fortes) until a quiet position.
-    int qsearch(Board& board,
-        int alpha,
-        int beta,
-        int ply,
-        const SearchContext& ctx);
-
-    // Fast static evaluation of a position from a given perspective (side-to-move in negamax).
-    int evaluate(const Board& board, Player perspective) const;
+    int qsearch(Board& board, int alpha, int beta, int ply, const SearchContext& ctx);
 
     // Move ordering at a node: combines TT move, tactical generator, killers/history, etc.
     // For now the implementation will reuse CandidateGenerator as a base and sort.
-    std::vector<Move> orderMoves(const Board& board,
-        const RuleSet& rules,
-        Player toMove,
-        const std::optional<Move>& ttMove) const;
+    std::vector<Move> orderMoves(const Board& board, const RuleSet& rules, Player toMove, const std::optional<Move>& ttMove) const;
 
     // Time management: returns true when we should abort the current search (soft stop).
     bool cutoffByTime(const SearchContext& ctx) const;
-
-    // Terminal detection with score. Returns true if the position is terminal and sets outScore.
-    bool isTerminal(const Board& board, int ply, int& outScore) const;
-
-    // Transposition table helpers.
-    // Attempt to read an entry and, if applicable, return a bound for cutoff.
-    bool ttProbe(const Board& board, int depth, int alpha, int beta, int& outScore, std::optional<Move>& ttMove, TranspositionTable::Flag& outFlag) const;
-    // Store a result into the TT.
-    void ttStore(const Board& board, int depth, int score, TranspositionTable::Flag flag, const std::optional<Move>& best);
 
     // Lightweight accounting for stats (node/qnode incrementers, killer/history updates, etc.).
     inline void onNodeVisited(SearchStats* stats) const
@@ -117,21 +88,10 @@ private:
 
     // --- Helpers extracted from bestMove for readability ---
     // Tries the immediate win shortcut if plausible; returns the winning move if found.
-    std::optional<Move> tryImmediateWinShortcut(Board& board,
-        const RuleSet& rules,
-        Player toPlay,
-        const std::vector<Move>& candidates) const;
+    std::optional<Move> tryImmediateWinShortcut(Board& board, const RuleSet& rules, Player toPlay, const std::vector<Move>& candidates) const;
 
     // Runs one iterative-deepening step at a given depth; fills best, bestScore, pv and updates nodes.
-    bool runDepth(int depth,
-        Board& board,
-        const RuleSet& rules,
-        Player toPlay,
-        const std::vector<Move>& rootCandidates,
-        std::optional<Move>& best,
-        int& bestScore,
-        std::vector<Move>& pv,
-        const SearchContext& ctx);
+    bool runDepth(int depth, Board& board, const RuleSet& rules, Player toPlay, const std::vector<Move>& rootCandidates, std::optional<Move>& best, int& bestScore, std::vector<Move>& pv, const SearchContext& ctx);
 
     SearchConfig cfg {};
     TranspositionTable tt;
