@@ -6,6 +6,78 @@
 
 namespace gomoku::eval {
 
+namespace {
+    // Helpers: Boundary and cell checks (wrappers for Board API with arithmetic-friendly overloads)
+
+    // Check if position is valid - for signed int (used after arithmetic with deltas)
+    inline bool inside(int x, int y) noexcept
+    {
+        return x >= 0 && x < BOARD_SIZE && y >= 0 && y < BOARD_SIZE;
+    }
+
+    // Check if cell is empty - for signed int coordinates
+    inline bool isEmpty(const Board& board, int x, int y) noexcept
+    {
+        return inside(x, y) && board.isEmpty(static_cast<uint8_t>(x), static_cast<uint8_t>(y));
+    }
+
+    // Helper: Count empty spaces in a direction from a adjacent position
+    inline int countEmptyRay(const Board& b, int x, int y, int dx, int dy, int cap = 4) noexcept
+    {
+        int n = 0;
+        int nx = x, ny = y; // ← on commence à la case adjacente
+        while (n < cap && isEmpty(b, nx, ny)) {
+            ++n;
+            nx += dx;
+            ny += dy;
+        }
+        return n;
+    }
+
+    // Helper: Detect capture threat pattern _OOX or XOO_ (opponent stones can be captured)
+    inline bool hasCapturePattern(const Board& b, int x, int y, int dx, int dy, Cell me, Cell opp) noexcept
+    {
+        // Pattern: X O O _ - can capture if we play at the empty spot
+        if (inside(x + 3 * dx, y + 3 * dy)) {
+            Cell c1 = b.at(static_cast<uint8_t>(x), static_cast<uint8_t>(y));
+            Cell c2 = b.at(static_cast<uint8_t>(x + dx), static_cast<uint8_t>(y + dy));
+            Cell c3 = b.at(static_cast<uint8_t>(x + 2 * dx), static_cast<uint8_t>(y + 2 * dy));
+            if (c1 == me && c2 == opp && c3 == opp && isEmpty(b, x + 3 * dx, y + 3 * dy))
+                return true;
+        }
+        // Pattern: _ O O X - can capture if we play at the empty spot
+        if (inside(x - 3 * dx, y - 3 * dy)) {
+            Cell c1 = b.at(static_cast<uint8_t>(x), static_cast<uint8_t>(y));
+            Cell c2 = b.at(static_cast<uint8_t>(x - dx), static_cast<uint8_t>(y - dy));
+            Cell c3 = b.at(static_cast<uint8_t>(x - 2 * dx), static_cast<uint8_t>(y - 2 * dy));
+            if (c1 == me && c2 == opp && c3 == opp && isEmpty(b, x - 3 * dx, y - 3 * dy))
+                return true;
+        }
+        return false;
+    }
+
+    // Helper: Detect if an alignment can potentially extend to 5
+    inline bool canExtendToFive(int len, int spaceBefore, int spaceAfter)
+    {
+        if (len >= 5)
+            return true; // Already 5
+        return (len + spaceBefore >= 5) || (len + spaceAfter >= 5) || (len + spaceBefore + spaceAfter >= 5);
+    }
+
+    // Helper: Assess freedom level of an alignment
+    enum class Freedom { Flanked,
+        HalfFree,
+        Free };
+    inline Freedom assessFreedom(int openEnds, int spaceBefore, int spaceAfter)
+    {
+        if (openEnds == 2)
+            return Freedom::Free;
+        if (openEnds == 1 && (spaceBefore >= 2 || spaceAfter >= 2))
+            return Freedom::HalfFree;
+        return Freedom::Flanked;
+    }
+}
+
 int evaluate(const Board& board, Player perspective) noexcept
 {
     // Safety: terminal states are handled by isTerminal() in search, but keep neutral for draws here.
@@ -31,9 +103,8 @@ int evaluate(const Board& board, Player perspective) noexcept
     int central = 0;
     const auto& occ = board.occupiedPositions();
     for (const auto& p : occ) {
-        const int x = p.x, y = p.y;
-        const Cell c = board.at(static_cast<uint8_t>(x), static_cast<uint8_t>(y));
-        const int md = std::abs(x - cx) + std::abs(y - cy);
+        const Cell c = board.at(p.x, p.y);
+        const int md = std::abs(static_cast<int>(p.x) - cx) + std::abs(static_cast<int>(p.y) - cy);
         const int w = std::max(0, CENTER_BASE - md);
         if (c == me)
             central += w;
@@ -59,11 +130,10 @@ int evaluate(const Board& board, Player perspective) noexcept
                 const int ly = recents[i].pos.y;
                 int frontLocal = 0;
                 for (const auto& p : occ) {
-                    const int x = p.x, y = p.y;
-                    const int md = std::abs(x - lx) + std::abs(y - ly);
+                    const int md = std::abs(static_cast<int>(p.x) - lx) + std::abs(static_cast<int>(p.y) - ly);
                     if (md > FRONT_BASE)
                         continue;
-                    const Cell c = board.at(static_cast<uint8_t>(x), static_cast<uint8_t>(y));
+                    const Cell c = board.at(p.x, p.y);
                     const int w = FRONT_BASE - md;
                     if (c == me)
                         frontLocal += w;
@@ -78,66 +148,155 @@ int evaluate(const Board& board, Player perspective) noexcept
     }
 
     // 3) Pattern runs in 4 directions (open/closed 2/3/4, 5+).
-    auto runValue = [](int len, int openEnds) -> int {
+    // Enhanced with freedom and potential win assessment
+    auto runValue = [](int len, int openEnds, Freedom freedom, bool canWin) -> int {
         if (len >= 5)
             return 100000; // effectively winning pattern (search should catch terminal earlier)
+
+        // Base values for alignments
+        int baseValue = 0;
         switch (len) {
         case 4:
-            return (openEnds >= 2) ? 10000 : 2500;
+            baseValue = (openEnds >= 2) ? 10000 : 2500;
+            break;
         case 3:
-            return (openEnds >= 2) ? 600 : 150;
+            baseValue = (openEnds >= 2) ? 600 : 150;
+            break;
         case 2:
-            return (openEnds >= 2) ? 80 : 20;
+            baseValue = (openEnds >= 2) ? 80 : 20;
+            break;
         case 1:
         default:
-            return (openEnds >= 2) ? 10 : 2;
+            baseValue = (openEnds >= 2) ? 10 : 2;
+            break;
         }
+
+        // Bonus for freedom level
+        int adjustedValue = baseValue;
+        if (freedom == Freedom::Free) {
+            adjustedValue = (baseValue * 13) / 10; // 30% bonus for totally free alignments
+        } else if (freedom == Freedom::HalfFree) {
+            adjustedValue = (baseValue * 11) / 10; // 10% bonus for half-free
+        }
+
+        // Penalty if cannot extend to 5
+        if (!canWin && len < 5) {
+            adjustedValue = (adjustedValue * 3) / 10; // Severe penalty for dead-end alignments
+        }
+
+        return adjustedValue;
     };
 
     constexpr int DIRS[4][2] = { { 1, 0 }, { 0, 1 }, { 1, 1 }, { 1, -1 } };
     int patternScore = 0;
+    int potentialCaptureScore = 0;
+
+    // 4) Strategic figures (double threats, forks)
+    // Count threatening patterns per player
+    int myThreats[5] = { 0 }; // Index: [open_fours, closed_fours, open_threes, closed_threes, twos]
+    int oppThreats[5] = { 0 };
+
+    // UNIFIED LOOP: Count patterns, score runs, detect threats and capture patterns in one pass
     for (const auto& p : occ) {
-        const int x = p.x, y = p.y;
-        const Cell c = board.at(static_cast<uint8_t>(x), static_cast<uint8_t>(y));
+        const Cell c = board.at(p.x, p.y);
+        const int x = static_cast<int>(p.x);
+        const int y = static_cast<int>(p.y);
+
         for (const auto& d : DIRS) {
             const int dx = d[0], dy = d[1];
             const int prevX = x - dx, prevY = y - dy;
+
             // Only start at the beginning of a run for this direction
-            if (prevX >= 0 && prevX < BOARD_SIZE && prevY >= 0 && prevY < BOARD_SIZE) {
+            if (inside(prevX, prevY)) {
                 if (board.at(static_cast<uint8_t>(prevX), static_cast<uint8_t>(prevY)) == c)
                     continue;
             }
+
             // Count run length
             int len = 0;
             int nx = x, ny = y;
-            while (nx >= 0 && nx < BOARD_SIZE && ny >= 0 && ny < BOARD_SIZE && board.at(static_cast<uint8_t>(nx), static_cast<uint8_t>(ny)) == c) {
+            while (inside(nx, ny) && board.at(static_cast<uint8_t>(nx), static_cast<uint8_t>(ny)) == c) {
                 ++len;
                 nx += dx;
                 ny += dy;
             }
-            // Determine openness at both ends
-            int openEnds = 0;
-            if (prevX >= 0 && prevX < BOARD_SIZE && prevY >= 0 && prevY < BOARD_SIZE) {
-                if (board.at(static_cast<uint8_t>(prevX), static_cast<uint8_t>(prevY)) == Cell::Empty)
-                    ++openEnds;
-            } else {
-                // Off-board is closed
-            }
-            if (nx >= 0 && nx < BOARD_SIZE && ny >= 0 && ny < BOARD_SIZE) {
-                if (board.at(static_cast<uint8_t>(nx), static_cast<uint8_t>(ny)) == Cell::Empty)
-                    ++openEnds;
-            } else {
-                // Off-board is closed
-            }
 
-            const int val = runValue(len, openEnds);
+            const bool leftOpen = isEmpty(board, prevX, prevY);
+            const bool rightOpen = isEmpty(board, nx, ny);
+
+            const int leftSpace = leftOpen ? countEmptyRay(board, prevX, prevY, -dx, -dy) : 0;
+            const int rightSpace = rightOpen ? countEmptyRay(board, nx, ny, dx, dy) : 0;
+
+            const int openEnds = (leftOpen ? 1 : 0) + (rightOpen ? 1 : 0);
+
+            // Peut-on atteindre 5 ? (les "spaces" incluent maintenant la case adjacente)
+            const bool canWin = (len >= 5) || (len + leftSpace + rightSpace >= 5);
+
+            Freedom freedom = assessFreedom(openEnds, leftSpace, rightSpace);
+
+            // Score the pattern run
+            const int val = runValue(len, openEnds, freedom, canWin);
             if (c == me)
                 patternScore += val;
             else if (c == opp)
                 patternScore -= val;
+
+            // Check for capture patterns (X_OOX)
+            if (c == me && hasCapturePattern(board, x, y, dx, dy, me, opp)) {
+                potentialCaptureScore += 400; // Bonus for potential capture setup
+            } else if (c == opp && hasCapturePattern(board, x, y, dx, dy, opp, me)) {
+                potentialCaptureScore -= 400; // Penalty if opponent has capture setup
+            }
+
+            // Classify threat for strategic combinations
+            int* threats = (c == me) ? myThreats : oppThreats;
+            if (len == 4) {
+                threats[(openEnds >= 2) ? 0 : 1]++; // open_four or closed_four
+            } else if (len == 3) {
+                threats[(openEnds >= 2) ? 2 : 3]++; // open_three or closed_three
+            } else if (len == 2 && openEnds >= 2) {
+                threats[4]++; // open_two
+            }
         }
     }
+
     score += patternScore;
+    score += potentialCaptureScore;
+
+    // Evaluate strategic combinations
+    int figureBonus = 0;
+
+    // Double open-four: instant win threat
+    if (myThreats[0] >= 2)
+        figureBonus += 50000;
+    if (oppThreats[0] >= 2)
+        figureBonus -= 50000;
+
+    // Open-four + open-three: very strong
+    if (myThreats[0] >= 1 && myThreats[2] >= 1)
+        figureBonus += 15000;
+    if (oppThreats[0] >= 1 && oppThreats[2] >= 1)
+        figureBonus -= 15000;
+
+    // Double open-three: strong fork
+    if (myThreats[2] >= 2)
+        figureBonus += 5000;
+    if (oppThreats[2] >= 2)
+        figureBonus -= 5000;
+
+    // Open-three + closed-four: forcing sequence
+    if (myThreats[0] >= 1 && myThreats[3] >= 1)
+        figureBonus += 3000;
+    if (oppThreats[0] >= 1 && oppThreats[3] >= 1)
+        figureBonus -= 3000;
+
+    // Multiple open-threes (3+): overwhelming position
+    if (myThreats[2] >= 3)
+        figureBonus += 8000;
+    if (oppThreats[2] >= 3)
+        figureBonus -= 8000;
+
+    score += figureBonus;
 
     return score;
 }
