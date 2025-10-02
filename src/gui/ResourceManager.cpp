@@ -61,6 +61,8 @@ bool ResourceManager::init()
         return false;
     if (!loadTexture("black_win", texturePath_ + "black_win.png"))
         return false;
+    if (!loadTexture("undo", texturePath_ + "ui/undo_button.png"))
+        return false;
 
 
     setAudioPackage("default");
