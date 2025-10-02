@@ -252,7 +252,7 @@ void GameScene::update(sf::Time& deltaTime)
         aiThinking_ = true;
         auto before = gameSession_.snapshot();
         auto t0 = std::chrono::steady_clock::now();
-        auto aiResult = gameSession_.playAI(/* budget in ms */ 450);
+        auto aiResult = gameSession_.playAI(/* budget in ms */ 500);
         auto t1 = std::chrono::steady_clock::now();
         lastAiMs_ = (int)std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
         auto snap = gameSession_.snapshot();
@@ -398,7 +398,7 @@ void GameScene::onHintClicked()
         return;
     }
 
-    auto result = gameSession_.hint(450);
+    auto result = gameSession_.hint(500);
     if(!result.mv)
         return;
     std::cout << "Hint: " << result.mv->pos << std::endl;

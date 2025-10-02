@@ -42,12 +42,12 @@ public:
 
     // Moves
     GamePlayResult playHuman(Pos p); // validate + play
-    GamePlayResult playAI(int timeMs = 450); // search + play
+    GamePlayResult playAI(int timeMs = 500); // search + play
     bool undo(int halfMoves = 1); // undo half-moves
     void reset(Player start = Player::Black);
 
     // Utilities
-    GamePlayResult hint(int timeMs = 450) const;
+    GamePlayResult hint(int timeMs = 500) const;
 
     // Expose underlying board view (read-only)
     const IBoardView& board() const { return gameService_->getBoard(); }
