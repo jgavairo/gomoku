@@ -21,33 +21,39 @@ namespace {
         return inside(x, y) && board.isEmpty(static_cast<uint8_t>(x), static_cast<uint8_t>(y));
     }
 
-    // Helper: Count empty spaces in a direction from a position
-    inline int countEmptySpace(const Board& board, int x, int y, int dx, int dy, int maxCount = 5) noexcept
+    // Helper: Count empty spaces in a direction from a adjacent position
+    inline int countEmptyRay(const Board& b, int x, int y, int dx, int dy, int cap = 4) noexcept
     {
-        int count = 0;
-        int nx = x + dx, ny = y + dy;
-        while (isEmpty(board, nx, ny) && count < maxCount) {
-            count++;
+        int n = 0;
+        int nx = x, ny = y; // ← on commence à la case adjacente
+        while (n < cap && isEmpty(b, nx, ny)) {
+            ++n;
             nx += dx;
             ny += dy;
         }
-        return count;
+        return n;
     }
 
-    // Helper: Detect capture pattern X_OOX (can capture two opponent stones)
-    inline bool hasCapturePattern(const Board& board, int x, int y, int dx, int dy, Cell me, Cell opp)
+    // Helper: Detect capture threat pattern _OOX or XOO_ (opponent stones can be captured)
+    inline bool hasCapturePattern(const Board& b, int x, int y, int dx, int dy, Cell me, Cell opp) noexcept
     {
-        // Pattern: me, empty, opp, opp, me
-        if (!inside(x + 4 * dx, y + 4 * dy))
-            return false;
-
-        Cell c1 = board.at(static_cast<uint8_t>(x), static_cast<uint8_t>(y));
-        Cell c2 = board.at(static_cast<uint8_t>(x + dx), static_cast<uint8_t>(y + dy));
-        Cell c3 = board.at(static_cast<uint8_t>(x + 2 * dx), static_cast<uint8_t>(y + 2 * dy));
-        Cell c4 = board.at(static_cast<uint8_t>(x + 3 * dx), static_cast<uint8_t>(y + 3 * dy));
-        Cell c5 = board.at(static_cast<uint8_t>(x + 4 * dx), static_cast<uint8_t>(y + 4 * dy));
-
-        return (c1 == me && c2 == Cell::Empty && c3 == opp && c4 == opp && c5 == me);
+        // Pattern: X O O _ - can capture if we play at the empty spot
+        if (inside(x + 3 * dx, y + 3 * dy)) {
+            Cell c1 = b.at(static_cast<uint8_t>(x), static_cast<uint8_t>(y));
+            Cell c2 = b.at(static_cast<uint8_t>(x + dx), static_cast<uint8_t>(y + dy));
+            Cell c3 = b.at(static_cast<uint8_t>(x + 2 * dx), static_cast<uint8_t>(y + 2 * dy));
+            if (c1 == me && c2 == opp && c3 == opp && isEmpty(b, x + 3 * dx, y + 3 * dy))
+                return true;
+        }
+        // Pattern: _ O O X - can capture if we play at the empty spot
+        if (inside(x - 3 * dx, y - 3 * dy)) {
+            Cell c1 = b.at(static_cast<uint8_t>(x), static_cast<uint8_t>(y));
+            Cell c2 = b.at(static_cast<uint8_t>(x - dx), static_cast<uint8_t>(y - dy));
+            Cell c3 = b.at(static_cast<uint8_t>(x - 2 * dx), static_cast<uint8_t>(y - 2 * dy));
+            if (c1 == me && c2 == opp && c3 == opp && isEmpty(b, x - 3 * dx, y - 3 * dy))
+                return true;
+        }
+        return false;
     }
 
     // Helper: Detect if an alignment can potentially extend to 5
@@ -64,9 +70,7 @@ namespace {
         Free };
     inline Freedom assessFreedom(int openEnds, int spaceBefore, int spaceAfter)
     {
-        if (openEnds == 0)
-            return Freedom::Flanked;
-        if (openEnds == 2 && spaceBefore >= 1 && spaceAfter >= 1)
+        if (openEnds == 2)
             return Freedom::Free;
         if (openEnds == 1 && (spaceBefore >= 2 || spaceAfter >= 2))
             return Freedom::HalfFree;
@@ -217,20 +221,18 @@ int evaluate(const Board& board, Player perspective) noexcept
                 ny += dy;
             }
 
-            // Count empty space at both ends
-            int spaceBefore = countEmptySpace(board, prevX, prevY, -dx, -dy);
-            int spaceAfter = countEmptySpace(board, nx, ny, dx, dy);
+            const bool leftOpen = isEmpty(board, prevX, prevY);
+            const bool rightOpen = isEmpty(board, nx, ny);
 
-            // Count openness at both ends
-            int openEnds = 0;
-            if (isEmpty(board, prevX, prevY))
-                ++openEnds;
-            if (isEmpty(board, nx, ny))
-                ++openEnds;
+            const int leftSpace = leftOpen ? countEmptyRay(board, prevX, prevY, -dx, -dy) : 0;
+            const int rightSpace = rightOpen ? countEmptyRay(board, nx, ny, dx, dy) : 0;
 
-            // Assess potential and freedom
-            bool canWin = canExtendToFive(len, spaceBefore, spaceAfter);
-            Freedom freedom = assessFreedom(openEnds, spaceBefore, spaceAfter);
+            const int openEnds = (leftOpen ? 1 : 0) + (rightOpen ? 1 : 0);
+
+            // Peut-on atteindre 5 ? (les "spaces" incluent maintenant la case adjacente)
+            const bool canWin = (len >= 5) || (len + leftSpace + rightSpace >= 5);
+
+            Freedom freedom = assessFreedom(openEnds, leftSpace, rightSpace);
 
             // Score the pattern run
             const int val = runValue(len, openEnds, freedom, canWin);
