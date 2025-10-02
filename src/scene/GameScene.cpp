@@ -38,6 +38,10 @@ GameScene::GameScene(Context& context, bool vsAi)
             helperSprite_.setTexture(context_.resourceManager->getTexture("pawn_hint"));
             helperSpriteReady_ = true;
         }
+        // Sprites de survol (utilisent les pions existants)
+        hoverSpriteWhite_.setTexture(context_.resourceManager->getTexture("pawn1"));
+        hoverSpriteBlack_.setTexture(context_.resourceManager->getTexture("pawn2"));
+        hoverSpritesReady_ = true;
     }
 
     rules_ = gomoku::RuleSet();
@@ -104,6 +108,42 @@ bool GameScene::handleInput(sf::Event& event)
     // Prévisualisation temporairement désactivée pour debug
 
     // Placement des pions sur clic souris
+    if (context_.window && event.type == sf::Event::MouseMoved) {
+        const auto size = context_.window->getSize();
+        const float centerX = static_cast<float>(size.x) * 0.5f;
+        const float centerY = static_cast<float>(size.y) * 0.5f;
+        const float tileW = std::min(static_cast<float>(size.x) * 0.8f / 18.f,
+                                     static_cast<float>(size.y) * 0.8f * 2.f / 18.f);
+        const float tileH = tileW * 0.5f;
+        sf::Vector2f mp = context_.window->mapPixelToCoords(sf::Vector2i(event.mouseMove.x, event.mouseMove.y));
+        const float X = mp.x - centerX;
+        const float Y = mp.y - centerY;
+        const float u = (Y / (tileH * 0.5f) + X / (tileW * 0.5f)) * 0.5f;
+        const float v = (Y / (tileH * 0.5f) - X / (tileW * 0.5f)) * 0.5f;
+        const int N = 19;
+        const int C = (N - 1) / 2;
+        int i = static_cast<int>(std::lround(u)) + C;
+        int j = static_cast<int>(std::lround(v)) + C;
+        i = std::max(0, std::min(18, i));
+        j = std::max(0, std::min(18, j));
+        // Validation de proximité identique au clic
+        const float ui = static_cast<float>(i - C);
+        const float vj = static_cast<float>(j - C);
+        const float snappedX = centerX + (ui - vj) * (tileW * 0.5f);
+        const float snappedY = centerY + (ui + vj) * (tileH * 0.5f);
+        const float dx = snappedX - mp.x;
+        const float dy = snappedY - mp.y;
+        const float maxDist = std::min(tileW, tileH) * 0.9f;
+        if ((dx * dx + dy * dy) <= (maxDist * maxDist)) {
+            hoverPos_ = gomoku::Pos { (uint8_t)i, (uint8_t)j };
+            showHover_ = true;
+        } else {
+            hoverPos_.reset();
+            showHover_ = false;
+        }
+        return false;
+    }
+
     if (context_.window && event.type == sf::Event::MouseButtonPressed) {
         auto btn = event.mouseButton.button;
         if (btn == sf::Mouse::Left || btn == sf::Mouse::Right) {
@@ -152,12 +192,18 @@ bool GameScene::handleInput(sf::Event& event)
             // 		const_cast<GameBoardRenderer&>(boardRenderer_).updateCell(i, j, CellState::Player2);
             // }
             if ((dx * dx + dy * dy) <= (maxDist * maxDist)) {
+                // Fixer la position de survol valide
+                hoverPos_ = gomoku::Pos { (uint8_t)i, (uint8_t)j };
+                showHover_ = true;
                 if (btn == sf::Mouse::Left) {
                     // If it's human's turn, try to play
                     auto before = gameSession_.snapshot();
                     if (gameSession_.controller(before.toPlay) == gomoku::Controller::Human) {
                         auto result = gameSession_.playHuman(gomoku::Pos { (uint8_t)i, (uint8_t)j });
                         if (result.ok) {
+                            // Après un coup posé, on masque le hover
+                            hoverPos_.reset();
+                            showHover_ = false;
                             if (hintEnabled_) {
                                 hintEnabled_ = false;
                                 hintPos_.reset();
@@ -257,6 +303,33 @@ void GameScene::render(sf::RenderTarget& target) const
         helperSprite_.setPosition({ p.x - pawnSize * 0.5f, p.y - pawnSize * 0.5f - 5.f });
         helperSprite_.setScale(scale, scale);
         target.draw(helperSprite_);
+    }
+
+    // Hover pawn (pion du joueur courant, translucide)
+    if (showHover_ && hoverPos_ && hoverSpritesReady_) {
+        auto snap = gameSession_.snapshot();
+        const bool whiteToPlay = (snap.toPlay == gomoku::Player::White);
+        sf::Sprite& hov = whiteToPlay ? hoverSpriteWhite_ : hoverSpriteBlack_;
+
+        const auto size = context_.window->getSize();
+        const float centerX = static_cast<float>(size.x) * 0.5f;
+        const float centerY = static_cast<float>(size.y) * 0.5f;
+        const float tileW = std::min(static_cast<float>(size.x) * 0.8f / 18.f,
+                                     static_cast<float>(size.y) * 0.8f * 2.f / 18.f);
+        const float tileH = tileW * 0.5f;
+        const int i = hoverPos_->x;
+        const int j = hoverPos_->y;
+        const auto p = gomoku::gui::GameBoardRenderer::isoToScreen(i, j, tileW, tileH, centerX, centerY);
+
+        float pawnSize = tileW * 0.6f;
+        float scale = pawnSize / static_cast<float>(hov.getTexture()->getSize().x);
+        hov.setPosition({ p.x - pawnSize * 0.5f, p.y - pawnSize * 0.5f - 5.f });
+        hov.setScale(scale, scale);
+        auto old = hov.getColor();
+        sf::Color c = old; c.a = 110; // léger transparent
+        hov.setColor(c);
+        target.draw(hov);
+        hov.setColor(old);
     }
     // UI
     backButton_.render(target);

@@ -29,6 +29,13 @@ private:
     mutable sf::Sprite helperSprite_;
     mutable bool helperSpriteReady_ = false;
 
+    // Survol: pion du joueur courant à l'emplacement cliquable sous la souris
+    std::optional<gomoku::Pos> hoverPos_;
+    bool showHover_ = false;
+    mutable sf::Sprite hoverSpriteWhite_;
+    mutable sf::Sprite hoverSpriteBlack_;
+    mutable bool hoverSpritesReady_ = false;
+
 
     bool vsAi_;
     gomoku::ui::Button backButton_;
