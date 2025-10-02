@@ -12,17 +12,22 @@ namespace gomoku {
 class Board;
 
 struct SearchConfig {
-    int timeBudgetMs = 450; // Budget temps (ms) pour la recherche
+    int timeBudgetMs = 500; // Budget temps (ms) pour la recherche
     int maxDepthHint = 11; // Profondeur max d'itération
     std::size_t ttBytes = (64ull << 20); // Taille allouée à la table de transposition
     unsigned long long nodeCap = 0; // Limite de nœuds dure (0 = désactivée)
-};
 
+    // Aspiration window parameters
+    bool useAspirationWindows = true; // Enable/disable aspiration windows
+    int aspirationDelta = 150; // Initial window half-width around previous score (larger for early game)
+    int aspirationWidenFactor = 3; // Factor to widen window on re-search (more aggressive)
+};
 class MinimaxSearch {
 public:
     explicit MinimaxSearch(const SearchConfig& conf)
         : cfg(conf)
     {
+        tt.resizeBytes(cfg.ttBytes); // Initialize TT with configured size
     }
 
     std::optional<Move> bestMove(Board& board, const RuleSet& rules, SearchStats* stats);
@@ -65,8 +70,16 @@ private:
     std::vector<Move> orderMoves(const Board& board, const RuleSet& rules, Player toMove, const std::optional<Move>& ttMove, int depth) const;
 
     // --- Helpers extracted from bestMove for readability ---
-    // Runs one iterative-deepening step at a given depth; fills best, bestScore, pv and updates nodes.
-    bool runDepth(int depth, Board& board, const RuleSet& rules, Player toPlay, const std::vector<Move>& rootCandidates, std::optional<Move>& best, int& bestScore, std::vector<Move>& pv, const SearchContext& ctx);
+    // Runs one iterative-deepening step at a given depth with specified alpha-beta window
+    // fills best, bestScore, pv and updates nodes.
+    bool runDepthWithWindow(int depth, Board& board, const RuleSet& rules, Player toPlay, const std::vector<Move>& rootCandidates, std::optional<Move>& best, int& bestScore, std::vector<Move>& pv, const SearchContext& ctx, int alpha, int beta);
+
+    // Legacy wrapper for backwards compatibility (uses full window)
+    bool runDepth(int depth, Board& board, const RuleSet& rules, Player toPlay, const std::vector<Move>& rootCandidates, std::optional<Move>& best, int& bestScore, std::vector<Move>& pv, const SearchContext& ctx)
+    {
+        constexpr int INF = 1'000'000;
+        return runDepthWithWindow(depth, board, rules, toPlay, rootCandidates, best, bestScore, pv, ctx, -INF, INF);
+    }
 
     SearchConfig cfg {};
     TranspositionTable tt;
