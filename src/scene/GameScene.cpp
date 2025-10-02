@@ -366,16 +366,24 @@ void GameScene::render(sf::RenderTarget& target) const
         target.draw(msgText_);
     }
 
-    // Endgame banner
-    if (snap.status != gomoku::GameStatus::Ongoing && fontOk_) {
-        sf::Text endTxt;
-        endTxt.setFont(font_);
-        endTxt.setCharacterSize(36);
-        endTxt.setFillColor(sf::Color::Yellow);
-        std::string msg = (snap.status == gomoku::GameStatus::Draw) ? "Draw" : "Victory";
-        endTxt.setString(msg);
-        endTxt.setPosition(20.f, 50.f);
-        target.draw(endTxt);
+    // Endgame banner / screen
+    if (snap.status != gomoku::GameStatus::Ongoing) {
+        // Affiche un écran de victoire plein écran selon le vainqueur
+        auto winner = gomoku::opponent(snap.toPlay);
+        const char* key = (winner == gomoku::Player::Black) ? "black_win" : "white_win";
+        if (context_.resourceManager && context_.resourceManager->hasTexture(key)) {
+            sf::Sprite winBg(context_.resourceManager->getTexture(key));
+            auto win = context_.window->getSize();
+            auto texSize = winBg.getTexture()->getSize();
+            float scaleX = static_cast<float>(win.x) / static_cast<float>(texSize.x);
+            float scaleY = static_cast<float>(win.y) / static_cast<float>(texSize.y);
+            float scale = std::max(scaleX, scaleY);
+            winBg.setScale(scale, scale);
+            winBg.setPosition(
+                (static_cast<float>(win.x) - static_cast<float>(texSize.x) * scale) * 0.5f,
+                (static_cast<float>(win.y) - static_cast<float>(texSize.y) * scale) * 0.5f);
+            target.draw(winBg);
+        }
     }
 
     // Mark that at least one frame has been presented; allows AI to start next update

@@ -6,3 +6,6 @@
 #define BUTTON_VOLUME 80.0f
 #define PLACE_PAWN_VOLUME 70.0f
 #define CAPTURE_VOLUME 60.0f
+#define WIN_VOLUME 100.0f
+#define LOSE_VOLUME 100.0f
+#define DRAW_VOLUME 100.0f

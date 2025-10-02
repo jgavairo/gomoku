@@ -57,6 +57,11 @@ bool ResourceManager::init()
         return false;
     if (!loadTexture("sound_off", texturePath_ + "ui/sound_off.png"))
         return false;
+    if (!loadTexture("white_win", texturePath_ + "white_win.png"))
+        return false;
+    if (!loadTexture("black_win", texturePath_ + "black_win.png"))
+        return false;
+
 
     setAudioPackage("default");
 
@@ -94,6 +99,8 @@ bool ResourceManager::setTexturePackage(const std::string& theme)
         {"settings_menu", "settings_menu.png"},
         {"sound_on", "ui/sound_on.png"},
         {"sound_off", "ui/sound_off.png"},
+        {"white_win", "white_win.png"},
+        {"black_win", "black_win.png"},
     };
 
     bool allOk = true;
