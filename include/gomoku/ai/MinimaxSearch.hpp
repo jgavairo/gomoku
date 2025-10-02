@@ -61,8 +61,8 @@ private:
     int qsearch(Board& board, int alpha, int beta, int ply, const SearchContext& ctx);
 
     // Move ordering at a node: combines TT move, tactical generator, killers/history, etc.
-    // For now the implementation will reuse CandidateGenerator as a base and sort.
-    std::vector<Move> orderMoves(const Board& board, const RuleSet& rules, Player toMove, const std::optional<Move>& ttMove) const;
+    // depth parameter: use expensive evaluation only at root (high depth), cheap heuristics elsewhere
+    std::vector<Move> orderMoves(const Board& board, const RuleSet& rules, Player toMove, const std::optional<Move>& ttMove, int depth) const;
 
     // --- Helpers extracted from bestMove for readability ---
     // Runs one iterative-deepening step at a given depth; fills best, bestScore, pv and updates nodes.
