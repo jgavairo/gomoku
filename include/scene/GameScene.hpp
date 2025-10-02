@@ -22,6 +22,7 @@ public:
 private:
     void onBackClicked();
     void onHintClicked();
+    void onUndoClicked();
 
     std::optional<gomoku::Pos> hintPos_;
     bool hintEnabled_ = false;
@@ -40,6 +41,7 @@ private:
     bool vsAi_;
     gomoku::ui::Button backButton_;
     gomoku::ui::Button hintButton_;
+    gomoku::ui::Button undoButton_;
     gomoku::gui::GameBoardRenderer boardRenderer_;
     gomoku::SessionController gameSession_;
     gomoku::RuleSet rules_;
