@@ -19,8 +19,8 @@ struct SearchConfig {
 
     // Aspiration window parameters
     bool useAspirationWindows = true; // Enable/disable aspiration windows
-    int aspirationDelta = 150; // Initial window half-width around previous score (larger for early game)
-    int aspirationWidenFactor = 3; // Factor to widen window on re-search (more aggressive)
+    int aspirationDelta = 600; // Initial window half-width around previous score (adjusted for new evaluator)
+    int aspirationWidenFactor = 8; // Factor to widen window on re-search (more aggressive)
 };
 class MinimaxSearch {
 public:

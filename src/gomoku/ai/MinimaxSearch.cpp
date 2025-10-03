@@ -89,8 +89,9 @@ std::optional<Move> MinimaxSearch::bestMove(Board& board, const RuleSet& rules, 
     for (int depth = 1; depth <= maxDepth; ++depth) {
         int alpha, beta;
 
-        // First iteration or aspiration disabled: use full window
-        if (depth == 1 || !cfg.useAspirationWindows) {
+        // First few iterations or aspiration disabled: use full window
+        // Aspiration windows are more effective at deeper depths when the tree is more stable
+        if (depth <= 5 || !cfg.useAspirationWindows) {
             alpha = -search::INF;
             beta = search::INF;
         } else {
@@ -103,7 +104,7 @@ std::optional<Move> MinimaxSearch::bestMove(Board& board, const RuleSet& rules, 
 
         bool searchComplete = false;
         int windowWidenCount = 0;
-        const int maxReSearches = 3; // Prevent infinite loop
+        const int maxReSearches = 2; // Limit re-searches (reduced from 3 to avoid wasted time)
         long long nodesBefore = stats ? stats->nodes : 0;
 
         // Aspiration window re-search loop
