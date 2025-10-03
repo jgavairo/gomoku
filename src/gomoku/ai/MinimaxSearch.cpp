@@ -14,8 +14,6 @@
 namespace gomoku {
 
 namespace {
-    using Clock = std::chrono::steady_clock;
-
     // Generate root candidates with fallback to legal moves
     inline std::vector<Move> genRootCandidates(const Board& board, const RuleSet& rules, Player toPlay)
     {
@@ -88,7 +86,7 @@ std::optional<Move> MinimaxSearch::bestMove(Board& board, const RuleSet& rules, 
 
     for (int depth = 1; depth <= maxDepth; ++depth) {
         int alpha, beta;
-
+        if (depth == 1) orderer_.clearForNewIteration(/*maxPly=*/64);
         // First few iterations or aspiration disabled: use full window
         // Aspiration windows are more effective at deeper depths when the tree is more stable
         if (depth <= 5 || !cfg.useAspirationWindows) {
@@ -222,6 +220,7 @@ std::vector<Move> MinimaxSearch::orderedMovesPublic(const Board& board, const Ru
 // Architecture prête pour extensions: PVS, TT probe/store, extensions tactiques, LMR.
 int MinimaxSearch::negamax(Board& board, int depth, int alpha, int beta, int ply, std::vector<Move>& pvOut, const SearchContext& ctx)
 {
+    int alpha0 = alpha, beta0 = beta;
     pvOut.clear();
 
     // Count this node
@@ -229,11 +228,11 @@ int MinimaxSearch::negamax(Board& board, int depth, int alpha, int beta, int ply
 
     // 1) Check time budget
     if (ctx.isTimeUp())
-        return 0; // Return neutral score on timeout
+        return alpha; // conserver une borne conservatrice
 
     // 2) Check node cap (hard limit)
     if (ctx.nodeCap > 0 && ctx.stats && ctx.stats->nodes >= static_cast<long long>(ctx.nodeCap))
-        return 0;
+        return alpha;
 
     // 3) Terminal check (win/loss/draw)
     int terminalScore = 0;
@@ -242,8 +241,6 @@ int MinimaxSearch::negamax(Board& board, int depth, int alpha, int beta, int ply
 
     // 4) Leaf node: transition to quiescence search or static eval
     if (depth <= 0) {
-        // For now, call qsearch to stabilize tactical positions
-        // When qsearch is implemented, this will explore forced sequences
         return qsearch(board, alpha, beta, ply, ctx);
     }
 
@@ -252,44 +249,34 @@ int MinimaxSearch::negamax(Board& board, int depth, int alpha, int beta, int ply
     int ttScore = 0;
     TranspositionTable::Flag ttFlag = TranspositionTable::Flag::Exact;
     if (search::ttProbe(tt, board, depth, alpha, beta, ttScore, ttMove, ttFlag)) {
-        // TT hit with usable bound/value
+        // Hit exploitable (Exact ou borne coupante) garanti par ttProbe
         ctx.recordTTHit();
-        // If exact score or cutoff, we can return immediately
-        // Note: PV is not reconstructed from TT (would require storing full PV)
         pvOut.clear();
-        if (ttMove)
-            pvOut.push_back(*ttMove);
+        if (ttMove) pvOut.push_back(*ttMove);
         return ttScore;
-    }
-    if (ttMove) {
-        // Even without a cutoff, we got a move hint for ordering
-        ctx.recordTTHit();
     }
 
     // 6) Generate and order moves
     Player toMove = board.toPlay();
-    auto moves = orderMoves(board, ctx.rules, toMove, ttMove, depth); // Pass TT move and depth for adaptive ordering
+    auto moves = orderer_.order(board, ctx.rules, toMove, depth, ttMove);
 
     // No legal moves: should not happen if terminal check is correct, but handle gracefully
-    if (moves.empty())
-        return eval::evaluate(board, toMove);
+    if (moves.empty()) return eval::evaluate(board, toMove);
 
     // 7) Alpha-beta search through child nodes
     int bestScore = -search::INF;
     std::vector<Move> bestPV;
-    bool foundLegal = false;
+    bool searchedAnyChild = false;  // <-- NEW
 
     for (const auto& m : moves) {
         // Try to play the move
         auto pr = board.tryPlay(m, ctx.rules);
-        if (!pr.success)
-            continue; // Skip illegal moves
-
-        foundLegal = true;
+        if (!pr.success) continue; // Skip illegal moves
 
         // Recursive negamax call (negate score due to negamax property)
         std::vector<Move> childPV;
         int score = -negamax(board, depth - 1, -beta, -alpha, ply + 1, childPV, ctx);
+        searchedAnyChild = true;     // <-- NEW
 
         // Undo the move
         board.undo();
@@ -303,40 +290,32 @@ int MinimaxSearch::negamax(Board& board, int depth, int alpha, int beta, int ply
         }
 
         // Alpha-beta pruning
-        if (score > alpha)
-            alpha = score;
-        if (alpha >= beta)
+        if (score > alpha) alpha = score;
+        if (alpha >= beta) {
+            orderer_.onBetaCut(ply, m); // <-- important pour killer/history
             break; // Beta cutoff
+        }
 
         // Check time during search
-        if (ctx.isTimeUp())
-            break;
+        if (ctx.isTimeUp() && !searchedAnyChild)
+            return alpha;
     }
-
-    // If no legal moves were found, return static evaluation
-    if (!foundLegal)
-        return eval::evaluate(board, toMove);
 
     // 8) TT store: save this position for future lookup
     // Determine the bound type based on alpha-beta window
     TranspositionTable::Flag storeFlag;
-    if (bestScore <= alpha) {
-        // Failed low: bestScore is an upper bound (all moves were <= alpha)
-        storeFlag = TranspositionTable::Flag::Upper;
-    } else if (bestScore >= beta) {
-        // Failed high: bestScore is a lower bound (beta cutoff occurred)
-        storeFlag = TranspositionTable::Flag::Lower;
-    } else {
-        // Exact score: within the [alpha, beta] window
-        storeFlag = TranspositionTable::Flag::Exact;
-    }
+    if (bestScore <= alpha0)		storeFlag = TranspositionTable::Flag::Upper; // fail-low vs fenêtre d’origine
+    else if (bestScore >= beta0)	storeFlag = TranspositionTable::Flag::Lower; // fail-high
+    else 							storeFlag = TranspositionTable::Flag::Exact;
 
     // Extract best move from PV
     std::optional<Move> bestMove;
-    if (!bestPV.empty())
-        bestMove = bestPV.front();
+    if (!bestPV.empty()) bestMove = bestPV.front();
 
-    search::ttStore(tt, board, depth, bestScore, storeFlag, bestMove);
+	if (!ctx.isTimeUp()) {
+        search::ttStore(tt, board, depth, bestScore, storeFlag, bestMove);
+    }
+
 
     pvOut = bestPV;
     return bestScore;
@@ -377,130 +356,70 @@ int MinimaxSearch::qsearch(Board& board, int alpha, int beta, int ply, const Sea
     return standPat;
 }
 
-// Ordonne les coups à explorer (Gomoku):
-//  - 1) TT move (si disponible)
-//  - 2) Évaluation spéculative avec tryPlay/undo
-//  - 3) Limitation dynamique du nombre de coups selon la profondeur
-std::vector<Move> MinimaxSearch::orderMoves(const Board& board, const RuleSet& rules, Player toMove, const std::optional<Move>& ttMove, int depth) const
-{
-    // Get base candidates (already well-ordered by CandidateGenerator)
-    auto moves = orderedMovesPublic(board, rules, toMove);
-
-    // Always place TT move first if available
-    if (ttMove && ttMove->isValid()) {
-        auto it = std::find_if(moves.begin(), moves.end(),
-            [&ttMove](const Move& m) { return m.pos == ttMove->pos; });
-
-        if (it != moves.end()) {
-            Move ttm = *it;
-            moves.erase(it);
-            moves.insert(moves.begin(), ttm);
-        }
-    }
-
-    // Evaluate all moves speculatively (critical for good alpha-beta performance)
-    struct ScoredMove {
-        Move move;
-        int score;
-    };
-
-    std::vector<ScoredMove> scoredMoves;
-    scoredMoves.reserve(moves.size());
-
-    // Skip first move if it's the ttMove
-    size_t startIdx = (ttMove && ttMove->isValid() && !moves.empty() && moves[0].pos == ttMove->pos) ? 1 : 0;
-
-    for (size_t i = startIdx; i < moves.size(); ++i) {
-        const auto& m = moves[i];
-        int score = 0;
-
-        auto pr = const_cast<Board&>(board).tryPlay(m, rules);
-        if (pr.success) {
-            if (board.status() == GameStatus::WinByAlign || board.status() == GameStatus::WinByCapture) {
-                score = 1000000; // Immediate win
-            } else {
-                score = -eval::evaluate(board, opponent(toMove));
-            }
-            const_cast<Board&>(board).undo();
-        } else {
-            score = -1000000; // Illegal
-        }
-
-        scoredMoves.push_back({ m, score });
-    }
-
-    std::sort(scoredMoves.begin(), scoredMoves.end(),
-        [](const ScoredMove& a, const ScoredMove& b) { return a.score > b.score; });
-
-    std::vector<Move> ordered;
-    ordered.reserve(moves.size());
-
-    if (startIdx == 1) {
-        ordered.push_back(moves[0]); // ttMove first
-    }
-
-    // Adaptive move count limit based on depth
-    // Aggressive pruning to reach depth 11
-    size_t maxMoves;
-    if (depth >= 8) {
-        maxMoves = 25; // Root: explore widely
-    } else if (depth >= 5) {
-        maxMoves = 15; // Mid-tree: aggressive selection
-    } else if (depth >= 2) {
-        maxMoves = 10; // Deep nodes: very selective
-    } else {
-        maxMoves = 6; // Leaf neighbors: ultra selective
-    }
-
-    size_t count = std::min(scoredMoves.size(), maxMoves);
-    for (size_t i = 0; i < count; ++i) {
-        ordered.push_back(scoredMoves[i].move);
-    }
-
-    return ordered;
-}
-
-bool MinimaxSearch::runDepthWithWindow(int depth, Board& board, const RuleSet& rules, Player toPlay, const std::vector<Move>& rootCandidates, std::optional<Move>& best, int& bestScore, std::vector<Move>& pv, const SearchContext& ctx, int alpha, int beta)
+bool MinimaxSearch::runDepthWithWindow(int depth, Board& board, const RuleSet& rules, Player toPlay,
+    const std::vector<Move>& rootCandidates,
+    std::optional<Move>& best, int& bestScore, std::vector<Move>& pv,
+    const SearchContext& ctx, int alpha, int beta)
 {
     if (ctx.isTimeUp())
         return false;
 
-    // Probe TT for this root position
+    const int alpha0 = alpha;
+    const int beta0 = beta;
+
+    // TT probe root
     std::optional<Move> ttRootMove;
     int ttScore = 0;
     TranspositionTable::Flag ttFlag = TranspositionTable::Flag::Exact;
-    bool ttHit = search::ttProbe(tt, board, depth, alpha, beta, ttScore, ttRootMove, ttFlag);
-
+    const bool ttHit = search::ttProbe(tt, board, depth, alpha, beta, ttScore, ttRootMove, ttFlag);
     if (ttHit) {
         ctx.recordTTHit();
         Logger::getInstance().debug("AI: TT hit at root depth {} - score {}, move {}",
             depth, ttScore, ttRootMove ? moveToString(*ttRootMove) : "none");
-    }
+	if (ttHit && ttFlag != TranspositionTable::Flag::Upper) {
+		alpha = std::max(alpha, ttScore);
+	}
+}
 
-    auto ordered = orderMoves(board, rules, toPlay, ttRootMove, depth);
+    // IMPORTANT: réordonner la liste fournie, ne pas regénérer
+    auto ordered = orderer_.order(board, rules, toPlay, depth, ttRootMove, &rootCandidates);
+
     if (ordered.empty())
-        ordered = rootCandidates; // fallback
+        return false;
 
     Logger::getInstance().debug("AI: Exploring {} root candidates at depth {}", ordered.size(), depth);
 
     std::optional<Move> depthBest;
     int depthBestScore = -search::INF;
     std::vector<Move> depthPV;
-    int movesSearched = 0;
     int bestMoveIndex = -1;
 
     for (size_t i = 0; i < ordered.size(); ++i) {
-        const auto& m = ordered[i];
         if (ctx.isTimeUp())
             break;
+
+        const Move& m = ordered[i];
         auto pr = board.tryPlay(m, rules);
         if (!pr.success)
             continue;
 
-        movesSearched++;
         std::vector<Move> childPV;
-        int childScore = negamax(board, depth - 1, -beta, -alpha, /*ply*/ 1, childPV, ctx);
-        int score = -childScore;
+        int childScore;
+
+        if (i == 0) {
+            // PVS: premier enfant en fenêtre pleine
+            childScore = negamax(board, depth - 1, -beta, -alpha, /*ply*/ 1, childPV, ctx);
+        } else {
+            // PVS: fenêtre nulle
+            childScore = negamax(board, depth - 1, -(alpha + 1), -alpha, /*ply*/ 1, childPV, ctx);
+            // Re-search si améliore
+            if (-childScore > alpha && !ctx.isTimeUp()) {
+                childPV.clear();
+                childScore = negamax(board, depth - 1, -beta, -alpha, /*ply*/ 1, childPV, ctx);
+            }
+        }
+
+        const int score = -childScore;
         board.undo();
 
         if (score > depthBestScore) {
@@ -510,37 +429,44 @@ bool MinimaxSearch::runDepthWithWindow(int depth, Board& board, const RuleSet& r
             depthPV.clear();
             depthPV.push_back(m);
             depthPV.insert(depthPV.end(), childPV.begin(), childPV.end());
+
             Logger::getInstance().debug("AI: New best move at depth {}: {} (score {}, move {}/{})",
-                depth, moveToString(m), score, movesSearched, ordered.size());
+                depth, moveToString(m), score, static_cast<int>(i + 1), static_cast<int>(ordered.size()));
         }
-        if (score > alpha)
+
+        if (score > alpha) {
             alpha = score;
+            // **Root beta-cut**
+            if (alpha >= beta) {
+                Logger::getInstance().debug("AI: Root beta-cut at depth {} after move #{}", depth, i + 1);
+                break;
+            }
+        }
     }
 
-    if (bestMoveIndex >= 0 && movesSearched > 0) {
-        Logger::getInstance().debug("AI: Best move was #{} out of {} candidates searched", bestMoveIndex + 1, movesSearched);
+    if (bestMoveIndex >= 0) {
+        Logger::getInstance().debug("AI: Best move was #{} out of {} candidates considered",
+            bestMoveIndex + 1, static_cast<int>(ordered.size()));
     }
 
+    // Timeout au milieu mais on a un meilleur ? → renvoyer le partiel
     if (!depthBest)
         return false;
 
     best = depthBest;
     bestScore = depthBestScore;
-    pv = depthPV;
+    pv = std::move(depthPV);
 
-    // Determine TT flag based on final score vs window
-    TranspositionTable::Flag storeFlag;
-    if (bestScore <= alpha) {
-        storeFlag = TranspositionTable::Flag::Upper; // Failed low
-    } else if (bestScore >= beta) {
-        storeFlag = TranspositionTable::Flag::Lower; // Failed high
-    } else {
-        storeFlag = TranspositionTable::Flag::Exact; // Exact score
+    // Déterminer le flag TT vs fenêtre d’origine
+    TranspositionTable::Flag storeFlag = (bestScore <= alpha0) ? TranspositionTable::Flag::Upper : (bestScore >= beta0) ? TranspositionTable::Flag::Lower
+                                                                                                                        : TranspositionTable::Flag::Exact;
+
+    // Option: ne pas stocker si timeUp (pour éviter d’empoisonner la TT)
+    if (!ctx.isTimeUp()) {
+        search::ttStore(tt, board, depth, bestScore, storeFlag, best);
     }
-
-    // Store result in TT
-    search::ttStore(tt, board, depth, bestScore, storeFlag, best);
 
     return true;
 }
+
 } // namespace gomoku
