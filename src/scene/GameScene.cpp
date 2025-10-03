@@ -13,24 +13,11 @@ GameScene::GameScene(Context& context, bool vsAi)
     , gameSession_(gomoku::SessionController())
 {
     // Initialisation du bouton Back
-    backButton_.setPosition({ 100, 820 });
-    backButton_.setSize({ 300, 70 });
-    if (context_.resourceManager && context_.resourceManager->hasTexture("back_button"))
-        backButton_.setTexture(&context_.resourceManager->getTexture("back_button"));
-    backButton_.setScale(1.0f);
-    backButton_.setCallback([this]() { onBackClicked(); });
+    initButtons(backButton_, "back_button", { 100, 820 }, 1.0f, [this]() { onBackClicked(); });
 
-    hintButton_.setPosition({ 1780, 880 });
-    if (context_.resourceManager && context_.resourceManager->hasTexture("hint_button"))
-        hintButton_.setTexture(&context_.resourceManager->getTexture("hint_button"));
-    hintButton_.setScale(0.1f);
-    hintButton_.setCallback([this]() { onHintClicked(); });
+    initButtons(hintButton_, "hint_button", { 1780, 880 }, 0.1f, [this]() { onHintClicked(); });
 
-    undoButton_.setPosition({ 1780, 780 });
-    if (context_.resourceManager && context_.resourceManager->hasTexture("undo"))
-        undoButton_.setTexture(&context_.resourceManager->getTexture("undo"));
-    undoButton_.setScale(0.09f);
-    undoButton_.setCallback([this]() { onUndoClicked(); });
+    initButtons(undoButton_, "undo", { 1780, 780 }, 0.09f, [this]() { onUndoClicked(); });
 
     // Initialisation du renderer de plateau
     if (context_.resourceManager) {
