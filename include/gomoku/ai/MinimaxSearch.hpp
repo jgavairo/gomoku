@@ -1,5 +1,6 @@
 #pragma once
 #include "gomoku/ai/SearchStats.hpp"
+#include "gomoku/ai/MoveOrderer.hpp"
 #include "gomoku/ai/TranspositionTable.hpp"
 #include "gomoku/core/Types.hpp"
 #include <chrono>
@@ -19,8 +20,8 @@ struct SearchConfig {
 
     // Aspiration window parameters
     bool useAspirationWindows = true; // Enable/disable aspiration windows
-    int aspirationDelta = 150; // Initial window half-width around previous score (larger for early game)
-    int aspirationWidenFactor = 3; // Factor to widen window on re-search (more aggressive)
+    int aspirationDelta = 600; // Initial window half-width around previous score (adjusted for new evaluator)
+    int aspirationWidenFactor = 8; // Factor to widen window on re-search (more aggressive)
 };
 class MinimaxSearch {
 public:
@@ -65,10 +66,6 @@ private:
     // Searches only tactical moves (captures/menaces fortes) until a quiet position.
     int qsearch(Board& board, int alpha, int beta, int ply, const SearchContext& ctx);
 
-    // Move ordering at a node: combines TT move, tactical generator, killers/history, etc.
-    // depth parameter: use expensive evaluation only at root (high depth), cheap heuristics elsewhere
-    std::vector<Move> orderMoves(const Board& board, const RuleSet& rules, Player toMove, const std::optional<Move>& ttMove, int depth) const;
-
     // --- Helpers extracted from bestMove for readability ---
     // Runs one iterative-deepening step at a given depth with specified alpha-beta window
     // fills best, bestScore, pv and updates nodes.
@@ -83,6 +80,8 @@ private:
 
     SearchConfig cfg {};
     TranspositionTable tt;
+    MoveOrderer orderer_{MoveOrdererConfig{}};
+
 };
 
 } // namespace gomoku
