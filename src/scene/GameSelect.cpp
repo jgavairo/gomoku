@@ -9,29 +9,9 @@ GameSelectScene::GameSelectScene(Context& ctx)
 {
     LOG_INFO("GameSelect: Game selection scene initialization");
 
-    playerVsPlayerButton_.setPosition({ 111, 696 });
-    playerVsPlayerButton_.setSize({ 300, 70 });
-    if (context_.resourceManager && context_.resourceManager->hasTexture("vs_player_button"))
-        playerVsPlayerButton_.setTexture(&context_.resourceManager->getTexture("vs_player_button"));
-    playerVsPlayerButton_.setScale(1.0f);
-    playerVsPlayerButton_.setCallback([this]() { onPlayerVsPlayerClicked(); });
-    playerVsPlayerButton_.setHoverCallback([this]() { playSfx("ui_hover", UI_HOVER_VOLUME); });
-
-    playerVsBotButton_.setPosition({ 693, 696 });
-    playerVsBotButton_.setSize({ 300, 70 });
-    if (context_.resourceManager && context_.resourceManager->hasTexture("vs_ai_button"))
-        playerVsBotButton_.setTexture(&context_.resourceManager->getTexture("vs_ai_button"));
-    playerVsBotButton_.setScale(1.0f);
-    playerVsBotButton_.setCallback([this]() { onPlayerVsBotClicked(); });
-    playerVsBotButton_.setHoverCallback([this]() { playSfx("ui_hover", UI_HOVER_VOLUME); });
-
-    backButton_.setPosition({ 1284, 695.5f });
-    backButton_.setSize({ 300, 70 });
-    if (context_.resourceManager && context_.resourceManager->hasTexture("back_button"))
-        backButton_.setTexture(&context_.resourceManager->getTexture("back_button"));
-    backButton_.setScale(1.0f);
-    backButton_.setCallback([this]() { onBackClicked(); });
-    backButton_.setHoverCallback([this]() { playSfx("ui_hover", UI_HOVER_VOLUME); });
+    initButtons(playerVsPlayerButton_, "vs_player_button", { 111, 696 }, 1.0f, [this]() { onPlayerVsPlayerClicked(); });
+    initButtons(playerVsBotButton_, "vs_ai_button", { 693, 696 }, 1.0f, [this]() { onPlayerVsBotClicked(); });
+    initButtons(backButton_, "back_button", { 1284, 695.5f }, 1.0f, [this]() { onBackClicked(); });
 }
 
 void GameSelectScene::update(sf::Time& deltaTime)

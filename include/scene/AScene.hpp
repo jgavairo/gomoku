@@ -1,6 +1,8 @@
 #pragma once
 #include "scene/Context.hpp"
 #include <SFML/Graphics.hpp>
+#include <functional>
+#include "ui/Button.hpp"
 
 namespace gomoku::scene {
 
@@ -20,7 +22,9 @@ public:
 protected:
     void playSfx(const char* name, float volume = 100.f) const;
     void playMusic(const char* path, bool loop = true, float volume = 60.f) const;
+    void initButtons(gomoku::ui::Button& btn, const char* key, sf::Vector2f pos, float scale, const std::function<void()>& callback);
     Context& context_;
 };
 
 } // namespace gomoku::scene
+

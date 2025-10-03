@@ -193,13 +193,6 @@ bool GameScene::handleInput(sf::Event& event)
             const float dy = snappedY - mp.y;
             const float maxDist = std::min(tileW, tileH) * 0.9f; // Zone cliquable étendue (était 0.35f)
 
-            // if ((dx * dx + dy * dy) <= (maxDist * maxDist))
-            // {
-            // 	if (btn == sf::Mouse::Left)
-            // 		const_cast<GameBoardRenderer&>(boardRenderer_).updateCell(i, j, CellState::Player1);
-            // 	else if (btn == sf::Mouse::Right)
-            // 		const_cast<GameBoardRenderer&>(boardRenderer_).updateCell(i, j, CellState::Player2);
-            // }
             if ((dx * dx + dy * dy) <= (maxDist * maxDist)) {
                 // Fixer la position de survol valide
                 hoverPos_ = gomoku::Pos { (uint8_t)i, (uint8_t)j };

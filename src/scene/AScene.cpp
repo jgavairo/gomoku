@@ -1,4 +1,5 @@
 #include "scene/AScene.hpp"
+#include "audio/Volumes.hpp"
 
 namespace gomoku::scene {
 
@@ -47,6 +48,16 @@ void AScene::playMusic(const char* path, bool loop, float volume) const
         if (context_.musicEnabled)
             context_.music->play();
     }
+}
+
+void AScene::initButtons(gomoku::ui::Button& btn, const char* key, sf::Vector2f pos, float scale, const std::function<void()>& callback)
+{
+    if (context_.resourceManager && context_.resourceManager->hasTexture(key))
+        btn.setTexture(&context_.resourceManager->getTexture(key));
+    btn.setScale(scale);
+    btn.setPosition(pos);
+    btn.setCallback(callback);
+    btn.setHoverCallback([this]() { playSfx("ui_hover", UI_HOVER_VOLUME); });
 }
 
 } // namespace gomoku::scene

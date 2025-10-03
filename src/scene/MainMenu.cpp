@@ -8,29 +8,9 @@ MainMenu::MainMenu(Context& context)
     : AScene(context)
 {
     std::cout << "[MainMenu] ctor" << std::endl;
-    playButton_.setPosition({ 111, 696 });
-    playButton_.setSize({ 300, 70 });
-    if (context_.resourceManager && context_.resourceManager->hasTexture("play_button"))
-        playButton_.setTexture(&context_.resourceManager->getTexture("play_button"));
-    playButton_.setScale(1.0f);
-    playButton_.setCallback([this]() { onPlayClicked(); });
-    playButton_.setHoverCallback([this]() { playSfx("ui_hover", UI_HOVER_VOLUME); });
-
-    settingsButton_.setPosition({ 693, 696 });
-    settingsButton_.setSize({ 300, 70 });
-    if (context_.resourceManager && context_.resourceManager->hasTexture("settings_button"))
-        settingsButton_.setTexture(&context_.resourceManager->getTexture("settings_button"));
-    settingsButton_.setScale(1.0f);
-    settingsButton_.setCallback([this]() { onSettingsClicked(); });
-    settingsButton_.setHoverCallback([this]() { playSfx("ui_hover", UI_HOVER_VOLUME); });
-
-    exitButton_.setPosition({ 1284, 695.5f });
-    exitButton_.setSize({ 300, 70 });
-    if (context_.resourceManager && context_.resourceManager->hasTexture("exit_button"))
-        exitButton_.setTexture(&context_.resourceManager->getTexture("exit_button"));
-    exitButton_.setScale(1.0f);
-    exitButton_.setCallback([this]() { onExitClicked(); });
-    exitButton_.setHoverCallback([this]() { playSfx("ui_hover", UI_HOVER_VOLUME); });
+    initButtons(playButton_, "play_button", { 111, 696 }, 1.0f, [this]() { onPlayClicked(); });
+    initButtons(settingsButton_, "settings_button", { 693, 696 }, 1.0f, [this]() { onSettingsClicked(); });
+    initButtons(exitButton_, "exit_button", { 1284, 695.5f }, 1.0f, [this]() { onExitClicked(); });
 }
 
 MainMenu::~MainMenu() = default;
