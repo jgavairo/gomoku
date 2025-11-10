@@ -33,6 +33,8 @@ uint64_t piece(Cell c, FlatIdx idx) noexcept
 
 uint64_t side() noexcept { return Z_SIDE; }
 
+void init() noexcept { do_seed(0x9E3779B97F4A7C15ULL); }
+
 void reseed(uint64_t seed) noexcept { do_seed(seed); }
 
 } // namespace gomoku::zobrist

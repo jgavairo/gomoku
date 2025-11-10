@@ -22,6 +22,9 @@ inline uint64_t piece(Cell c, Pos p) noexcept
 // Side-to-move toggle (à XOR à chaque changement de trait).
 uint64_t side() noexcept;
 
+// Initialize Zobrist tables (called automatically, but can be called explicitly for tests)
+void init() noexcept;
+
 // (Optionnel) pour tests : redéfinir les clés de façon déterministe
 void reseed(uint64_t seed) noexcept;
 

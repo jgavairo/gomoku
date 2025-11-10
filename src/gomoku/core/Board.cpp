@@ -122,6 +122,7 @@ PlayResult Board::applyCore(Move m, const RuleSet& rules, bool record)
         u.whiteStonesBefore = state.whiteStones;
         u.stateBefore = gameState;
         u.playerBefore = currentPlayer;
+        u.zobristBefore = state.zobristHash; // Sauvegarder le hash complet
     }
 
     state.placeStone(m.pos, playerToCell(m.by));
@@ -252,8 +253,8 @@ bool Board::undo()
     UndoEntry u = std::move(moveHistory.back());
     moveHistory.pop_back();
 
-    // Zobrist: le trait redevient celui d'avant
-    state.flipSide();
+    // Restaurer le joueur courant
+    currentPlayer = u.playerBefore;
 
     // Retirer la pierre jouée (cell + occupied)
     state.removeStone(u.move.pos);
@@ -263,12 +264,17 @@ bool Board::undo()
     for (auto rp : u.capturedStones) {
         state.placeStone(rp, oppC);
     }
+
+    // Restaurer les compteurs
     state.blackPairs = u.blackPairsBefore;
     state.whitePairs = u.whitePairsBefore;
     state.blackStones = u.blackStonesBefore;
     state.whiteStones = u.whiteStonesBefore;
     gameState = u.stateBefore;
-    currentPlayer = u.playerBefore;
+
+    // Restaurer le hash Zobrist sauvegardé (plus fiable que de le reconstruire)
+    state.zobristHash = u.zobristBefore;
+
     return true;
 }
 
@@ -326,6 +332,22 @@ void Board::forceSide(Player p)
         currentPlayer = p;
         // Maintenir la clé Zobrist alignée avec "side to move"
         state.flipSide();
+    }
+}
+
+void Board::setStone(Pos p, Cell c)
+{
+    if (!isInside(p.x, p.y))
+        return;
+
+    // Remove existing stone if any
+    if (!isEmpty(p.x, p.y)) {
+        state.removeStone(p);
+    }
+
+    // Place new stone if not Empty
+    if (c != Cell::Empty) {
+        state.placeStone(p, c);
     }
 }
 

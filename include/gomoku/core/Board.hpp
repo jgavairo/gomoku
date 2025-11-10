@@ -50,6 +50,10 @@ public:
     // Force player turn (for specific game setups)
     void forceSide(Player p);
 
+    // Test helper: place a stone directly without turn validation (bypasses game rules)
+    // Useful for setting up specific board configurations in unit tests
+    void setStone(Pos p, Cell c);
+
     // Sparse occupied cells accessor (for fast scans in generators/eval)
     const std::vector<Pos>& occupiedPositions() const;
 
@@ -69,6 +73,7 @@ private:
         int blackStonesBefore { 0 }, whiteStonesBefore { 0 };
         GameStatus stateBefore { GameStatus::Ongoing };
         Player playerBefore { Player::Black };
+        uint64_t zobristBefore { 0 }; // Hash Zobrist avant le coup
     };
     std::vector<UndoEntry> moveHistory;
 

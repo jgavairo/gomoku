@@ -77,7 +77,8 @@ GUI_SRC = \
 	$(SRC_DIR)/util/Preferences.cpp
 
 TEST_SRC = \
-	tests/test_min.cpp
+	tests/test_runner.cpp \
+	tests/unit_tests/test_board_basics.cpp
 
 # Objects
 CORE_OBJ = $(CORE_SRC:%.cpp=$(OBJ_DIR)/%.o)
