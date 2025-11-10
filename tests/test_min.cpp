@@ -15,8 +15,11 @@ using namespace gomoku;
 // Fournit une façade légère autour de SessionController pour conserver les mêmes appels.
 struct TestEngine {
     SessionController session;
-    explicit TestEngine(const EngineConfig& cfg = {})
-        : session(cfg.rules)
+    RuleSet rules;
+    
+    explicit TestEngine(const RuleSet& r = {})
+        : session(r)
+        , rules(r)
     {
     }
     const IBoardView& board() const { return *session.snapshot().view; }
@@ -39,7 +42,6 @@ struct TestEngine {
         // Tenter un tryPlay sur une copie concrète si possible
         if (auto concrete = dynamic_cast<const gomoku::Board*>(&view)) {
             gomoku::Board sim = *concrete; // copie
-            RuleSet rules {}; // défaut: utilise les règles standard
             auto pr = sim.tryPlay(m, rules);
             if (pr.success) {
                 if (why)
@@ -228,11 +230,11 @@ TEST(double_three_allowed_if_capture)
 
 TEST(full_board_draw)
 {
-    EngineConfig cfg {};
-    cfg.rules.forbidDoubleThree = false; // ease filling
-    cfg.rules.capturesEnabled = false; // avoid captures
-    cfg.rules.allowFiveOrMore = false; // disable 5+ wins so we can fill the board
-    TestEngine e { cfg };
+    RuleSet rules {};
+    rules.forbidDoubleThree = false; // ease filling
+    rules.capturesEnabled = false; // avoid captures
+    rules.allowFiveOrMore = false; // disable 5+ wins so we can fill the board
+    TestEngine e { rules };
     // Fill checkerboard to avoid 5-in-a-row
     for (int y = 0; y < BOARD_SIZE; ++y) {
         for (int x = 0; x < BOARD_SIZE; ++x) {
@@ -309,9 +311,9 @@ TEST(capture_both_directions_two_pairs)
 
 TEST(capture_win_by_pairs)
 {
-    EngineConfig cfg {};
-    cfg.rules.captureWinPairs = 1; // first capture wins
-    TestEngine e { cfg };
+    RuleSet rules {};
+    rules.captureWinPairs = 1; // first capture wins
+    TestEngine e { rules };
     bool ok;
     ok = e.play({ Pos { 0, 0 }, e.board().toPlay() });
     REQUIRE(ok); // B
