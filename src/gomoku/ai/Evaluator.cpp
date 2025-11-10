@@ -114,6 +114,7 @@ int evaluate(const Board& board, Player perspective) noexcept
     score += central * CENTER_WEIGHT;
 
     // 2b) Front proximity: bias towards stones near the recent front (last 3 moves, weighted).
+    // OPTIMIZED: Calculate proximity for each stone once, accumulating weighted contributions
     {
         constexpr int FRONT_BASE = 6; // radius-like shells
         constexpr int FRONT_WEIGHT = 5; // final multiplier
@@ -122,25 +123,30 @@ int evaluate(const Board& board, Player perspective) noexcept
         const auto recents = board.lastMoves(3);
         if (!recents.empty()) {
             int frontAccum = 0;
-            int weightSum = 0;
-            for (std::size_t i = 0; i < recents.size(); ++i) {
-                const int wMove = (i == 0 ? W1 : (i == 1 ? W2 : W3));
-                weightSum += wMove;
-                const int lx = recents[i].pos.x;
-                const int ly = recents[i].pos.y;
-                int frontLocal = 0;
-                for (const auto& p : occ) {
-                    const int md = std::abs(static_cast<int>(p.x) - lx) + std::abs(static_cast<int>(p.y) - ly);
-                    if (md > FRONT_BASE)
-                        continue;
-                    const Cell c = board.at(p.x, p.y);
-                    const int w = FRONT_BASE - md;
-                    if (c == me)
-                        frontLocal += w;
-                    else if (c == opp)
-                        frontLocal -= w;
+            // Inverted loop: iterate stones once, calculate distance to all recent moves
+            for (const auto& p : occ) {
+                const Cell c = board.at(p.x, p.y);
+                if (c == Cell::Empty) continue;
+                
+                const int px = static_cast<int>(p.x);
+                const int py = static_cast<int>(p.y);
+                int stoneValue = 0;
+                
+                // Calculate contribution to each recent move
+                for (std::size_t i = 0; i < recents.size(); ++i) {
+                    const int wMove = (i == 0 ? W1 : (i == 1 ? W2 : W3));
+                    const int lx = recents[i].pos.x;
+                    const int ly = recents[i].pos.y;
+                    const int md = std::abs(px - lx) + std::abs(py - ly);
+                    if (md <= FRONT_BASE) {
+                        stoneValue += (FRONT_BASE - md) * wMove;
+                    }
                 }
-                frontAccum += frontLocal * wMove;
+                
+                if (c == me)
+                    frontAccum += stoneValue;
+                else if (c == opp)
+                    frontAccum -= stoneValue;
             }
             // Divide by sum of move weights (6) to get an average-like effect
             score += (frontAccum / (W1 + W2 + W3)) * FRONT_WEIGHT;

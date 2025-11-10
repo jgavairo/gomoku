@@ -1,6 +1,7 @@
 #include "gomoku/core/PatternAnalyzer.hpp"
 #include "gomoku/core/CaptureEngine.hpp"
 #include "gomoku/core/RayTables.hpp"
+#include <bitset>
 
 namespace gomoku::pattern {
 
@@ -26,9 +27,9 @@ bool createsIllegalDoubleThree(const BoardState& state, Move m, const RuleSet& r
     const Cell ME = playerToCell(m.by);
     const Cell OP = (ME == Cell::Black ? Cell::White : Cell::Black);
 
-    // --- Captures virtuelles autour de m ---
-    uint16_t capturedIdx[8];
-    int captured_n = 0;
+    // --- Captures virtuelles autour de m (optimized with bitset) ---
+    constexpr int MAX_BOARD_CELLS = BOARD_SIZE * BOARD_SIZE;
+    std::bitset<MAX_BOARD_CELLS> capturedSet;
 
     const uint16_t idx0 = BoardState::idx(m.pos);
     for (int d = 0; d < 4; ++d) {
@@ -36,22 +37,15 @@ bool createsIllegalDoubleThree(const BoardState& state, Move m, const RuleSet& r
 
         // fwd: .. OP OP ME -> capture
         if (ray.fwd[2] != 0xFFFF && state.getCell(Pos::fromIndex(ray.fwd[0])) == OP && state.getCell(Pos::fromIndex(ray.fwd[1])) == OP && state.getCell(Pos::fromIndex(ray.fwd[2])) == ME) {
-            capturedIdx[captured_n++] = ray.fwd[0];
-            capturedIdx[captured_n++] = ray.fwd[1];
+            capturedSet.set(ray.fwd[0]);
+            capturedSet.set(ray.fwd[1]);
         }
         // bwd: ME OP OP .. -> capture
         if (ray.bwd[2] != 0xFFFF && state.getCell(Pos::fromIndex(ray.bwd[0])) == OP && state.getCell(Pos::fromIndex(ray.bwd[1])) == OP && state.getCell(Pos::fromIndex(ray.bwd[2])) == ME) {
-            capturedIdx[captured_n++] = ray.bwd[0];
-            capturedIdx[captured_n++] = ray.bwd[1];
+            capturedSet.set(ray.bwd[0]);
+            capturedSet.set(ray.bwd[1]);
         }
     }
-
-    auto isVirtuallyCaptured = [&](uint16_t id) noexcept {
-        for (int i = 0; i < captured_n; ++i)
-            if (capturedIdx[i] == id)
-                return true;
-        return false;
-    };
 
     // lecture "virtuelle" tenant compte de la pierre posée et des captures virtuelles
     auto vAt = [&](int x, int y) noexcept -> Cell {
@@ -60,7 +54,7 @@ bool createsIllegalDoubleThree(const BoardState& state, Move m, const RuleSet& r
         const uint16_t id = BoardState::idx(static_cast<uint8_t>(x), static_cast<uint8_t>(y));
         if (id == idx0)
             return ME; // pierre qu'on pose
-        if (isVirtuallyCaptured(id))
+        if (capturedSet.test(id))
             return Cell::Empty; // retirée virtuellement
         return state.getCell(Pos::fromIndex(id));
     };

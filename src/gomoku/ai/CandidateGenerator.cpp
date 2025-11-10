@@ -95,28 +95,40 @@ namespace {
     }
 
     //-------------------------------------------
-    // Étape 2 — Fusion rectangulaire
+    // Étape 2 — Fusion rectangulaire (optimized single pass)
     //-------------------------------------------
     std::vector<Rect> mergeAll(std::vector<Rect> rs)
     {
-        int mergeCount = 0;
-        bool changed = true;
-        while (changed) {
-            changed = false;
-            for (size_t i = 0; i < rs.size(); ++i) {
-                for (size_t j = i + 1; j < rs.size(); ++j) {
-                    if (intersect(rs[i], rs[j])) {
-                        rs[i] = merge(rs[i], rs[j]);
-                        rs.erase(rs.begin() + j);
-                        changed = true;
-                        mergeCount++;
-                        goto nextOuter;
+        if (rs.empty()) return rs;
+        
+        const size_t n = rs.size();
+        std::vector<bool> merged(n, false);
+        std::vector<Rect> result;
+        result.reserve(n);
+        
+        // Single pass: for each rectangle, merge with all intersecting ones
+        for (size_t i = 0; i < n; ++i) {
+            if (merged[i]) continue;
+            
+            Rect current = rs[i];
+            merged[i] = true;
+            
+            // Keep merging until no more intersections found
+            bool foundIntersection = true;
+            while (foundIntersection) {
+                foundIntersection = false;
+                for (size_t j = i + 1; j < n; ++j) {
+                    if (merged[j]) continue;
+                    if (intersect(current, rs[j])) {
+                        current = merge(current, rs[j]);
+                        merged[j] = true;
+                        foundIntersection = true;
                     }
                 }
             }
-        nextOuter:;
+            result.push_back(current);
         }
-        return rs;
+        return result;
     }
 
     std::vector<Rect> dilateAndMerge(std::vector<Rect> rs, int effMargin)

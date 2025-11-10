@@ -266,6 +266,7 @@ int MinimaxSearch::negamax(Board& board, int depth, int alpha, int beta, int ply
     // 7) Alpha-beta search through child nodes
     int bestScore = -search::INF;
     std::vector<Move> bestPV;
+    bestPV.reserve(32); // Reserve space for typical PV length
     bool searchedAnyChild = false;  // <-- NEW
 
     for (const auto& m : moves) {
@@ -275,18 +276,19 @@ int MinimaxSearch::negamax(Board& board, int depth, int alpha, int beta, int ply
 
         // Recursive negamax call (negate score due to negamax property)
         std::vector<Move> childPV;
+        childPV.reserve(31); // Reserve space (depth-1)
         int score = -negamax(board, depth - 1, -beta, -alpha, ply + 1, childPV, ctx);
         searchedAnyChild = true;     // <-- NEW
 
         // Undo the move
         board.undo();
 
-        // Update best score and PV
+        // Update best score and PV (optimized: avoid clear+insert, use swap+resize)
         if (score > bestScore) {
             bestScore = score;
-            bestPV.clear();
-            bestPV.push_back(m);
-            bestPV.insert(bestPV.end(), childPV.begin(), childPV.end());
+            // Efficiently build new PV by swapping and prepending
+            bestPV.swap(childPV);
+            bestPV.insert(bestPV.begin(), m);
         }
 
         // Alpha-beta pruning
@@ -392,6 +394,7 @@ bool MinimaxSearch::runDepthWithWindow(int depth, Board& board, const RuleSet& r
     std::optional<Move> depthBest;
     int depthBestScore = -search::INF;
     std::vector<Move> depthPV;
+    depthPV.reserve(depth); // Pre-allocate based on expected PV length
     int bestMoveIndex = -1;
 
     for (size_t i = 0; i < ordered.size(); ++i) {
@@ -404,6 +407,7 @@ bool MinimaxSearch::runDepthWithWindow(int depth, Board& board, const RuleSet& r
             continue;
 
         std::vector<Move> childPV;
+        childPV.reserve(depth - 1); // Pre-allocate for child PV
         int childScore;
 
         if (i == 0) {
@@ -426,9 +430,9 @@ bool MinimaxSearch::runDepthWithWindow(int depth, Board& board, const RuleSet& r
             depthBestScore = score;
             depthBest = m;
             bestMoveIndex = static_cast<int>(i);
-            depthPV.clear();
-            depthPV.push_back(m);
-            depthPV.insert(depthPV.end(), childPV.begin(), childPV.end());
+            // Optimize PV construction using swap
+            depthPV.swap(childPV);
+            depthPV.insert(depthPV.begin(), m);
 
             Logger::getInstance().debug("AI: New best move at depth {}: {} (score {}, move {}/{})",
                 depth, moveToString(m), score, static_cast<int>(i + 1), static_cast<int>(ordered.size()));
