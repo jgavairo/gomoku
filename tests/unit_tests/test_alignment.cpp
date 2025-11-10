@@ -1,4 +1,6 @@
 // Tests unitaires pour la détection d'alignements et victoires
+#include "../utils/BoardBuilder.hpp"
+#include "../utils/BoardPrinter.hpp"
 #include "gomoku/core/Board.hpp"
 #include "gomoku/core/Types.hpp"
 #include "test_framework.hpp"
@@ -154,21 +156,18 @@ TEST(five_breakable_by_capture_no_win)
     RuleSet rules;
     rules.capturesEnabled = true;
 
-    // Créer une situation où Black a 5 alignés mais ils sont cassables par capture
-    // Configuration du 5 aligné de Black en y=9
-    for (int x = 4; x <= 8; x++) {
-        board.setStone(Pos { static_cast<uint8_t>(x), 9 }, Cell::Black);
-    }
+    // Configuration : Black a 5 alignés en y=9, White peut capturer la paire B-B en y=8
+    // Ligne 8: . . . . X X . .
+    // Ligne 9: . . . O X X X X X .
+    test_utils::set_board(board, R"(
+        . . . . X X . .
+        . . . O X X X X X .
+    )",
+        3, 8);
 
-    // Créer une paire capturable : W B B _ (White peut jouer après pour capturer)
-    board.setStone(Pos { 3, 9 }, Cell::White);
-    board.setStone(Pos { 4, 8 }, Cell::Black);
-    board.setStone(Pos { 5, 8 }, Cell::Black);
-    // Position (6, 8) est vide - White peut jouer ici pour capturer
-
-    // White joue pour créer une capture potentielle
+    // White joue pour capturer les deux B en (4,8) et (5,8)
     board.forceSide(Player::White);
-    Move capture_move { Pos { 6, 8 }, Player::White }; // Capture B B
+    Move capture_move { Pos { 6, 8 }, Player::White };
     PlayResult r = board.tryPlay(capture_move, rules);
     ASSERT_TRUE(r.success);
 
@@ -215,28 +214,29 @@ TEST(must_break_five_rule)
     rules.capturesEnabled = true;
     rules.allowFiveOrMore = true;
 
-    // White a un 5 aligné cassable en y=5
-    for (int x = 5; x <= 9; x++) {
-        board.setStone(Pos { static_cast<uint8_t>(x), 5 }, Cell::White);
-    }
+    // Configuration du plateau :
+    // Ligne 4: . . X O O .
+    // Ligne 5: . X O O O O O .
+    // White a 5 alignés en y=5, Black peut capturer la paire O-O en y=4
+    test_utils::set_board(board, R"(
+        . . X O O .
+        . X O O O O O .
+    )",
+        3, 4);
 
-    // Créer une paire capturable de White : B W W _
-    // Black peut jouer pour capturer et casser une partie du 5
-    board.setStone(Pos { 4, 5 }, Cell::Black); // B avant le 5
-    // Position (5,5) à (9,5) sont déjà White
-    // On ajoute une configuration capturable ailleurs
-    board.setStone(Pos { 5, 4 }, Cell::Black);
-    board.setStone(Pos { 6, 4 }, Cell::White);
-    board.setStone(Pos { 7, 4 }, Cell::White);
-    // Position (8, 4) est vide - Black peut jouer ici pour capturer
+    std::cout << "\n=== Configuration initiale (White a un 5 en y=5) ===\n";
+    test_utils::print_board_region(board, 3, 10, 3, 10);
 
     // Black peut casser le 5 en capturant une des pierres
     board.forceSide(Player::Black);
 
-    // Black capture les deux W en (6,4) et (7,4)
+    // Black capture les deux O en (6,4) et (7,4)
     Move capture { Pos { 8, 4 }, Player::Black };
     PlayResult r1 = board.tryPlay(capture, rules);
     ASSERT_TRUE(r1.success);
+
+    std::cout << "=== Après capture en (8,4) ===\n";
+    test_utils::print_board_region(board, 3, 10, 3, 10);
 
     // Vérifier que la capture a bien fonctionné en vérifiant que les pierres ont disparu
     ASSERT_EQ(board.at(6, 4), Cell::Empty);
