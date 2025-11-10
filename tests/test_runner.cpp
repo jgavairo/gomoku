@@ -7,6 +7,7 @@
 
 // Déclarations externes (C++ linkage)
 extern void run_all_board_basic_tests();
+extern void run_all_alignment_tests();
 
 int main(int argc, char** argv)
 {
@@ -23,9 +24,9 @@ int main(int argc, char** argv)
     }
 
     std::cout << "\n";
-    std::cout << "╔══════════════════════════════════════════════════╗\n";
-    std::cout << "║      Gomoku Unit Tests - Board & Placement       ║\n";
-    std::cout << "╚══════════════════════════════════════════════════╝\n";
+    std::cout << "╔═══════════════════════════════════════════════════╗\n";
+    std::cout << "║                 Gomoku Unit Tests                 ║\n";
+    std::cout << "╚═══════════════════════════════════════════════════╝\n";
     std::cout << "\n";
 
     if (verbose) {
@@ -34,6 +35,7 @@ int main(int argc, char** argv)
 
     // Exécuter tous les tests enregistrés
     run_all_board_basic_tests();
+    run_all_alignment_tests();
 
     return 0;
 }
