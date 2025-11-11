@@ -167,9 +167,6 @@ TEST(double_three_forbidden_horizontal_vertical)
     test_utils::set_vertical(board, ".X", 8, 2);
     test_utils::set_vertical(board, "X", 8, 6);
 
-    std::cout << "\n=== Configuration double-three test ===\n";
-    test_utils::print_board_region(board, 4, 11, 1, 8);
-
     board.forceSide(Player::Black);
     Move forbidden { Pos { 8, 5 }, Player::Black }; // Complète les deux patterns
     PlayResult r = board.tryPlay(forbidden, rules);
