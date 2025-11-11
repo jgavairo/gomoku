@@ -216,9 +216,6 @@ TEST(must_break_five_rule)
 
     ASSERT_EQ(board.status(), GameStatus::Ongoing);
 
-    std::cout << "\n=== Configuration initiale (White a un 5 en y=5) ===\n";
-    test_utils::print_board_region(board, 3, 10, 3, 10);
-
     // Black peut casser le 5 en capturant une des pierres
     board.forceSide(Player::Black);
 
@@ -226,9 +223,6 @@ TEST(must_break_five_rule)
     Move capture { Pos { 5, 7 }, Player::Black };
     PlayResult r1 = board.tryPlay(capture, rules);
     ASSERT_TRUE(r1.success);
-
-    std::cout << "=== Après capture en (8,4) ===\n";
-    test_utils::print_board_region(board, 3, 10, 3, 10);
 
     // Vérifier que la capture a bien fonctionné en vérifiant que les pierres ont disparu
     ASSERT_EQ(board.at(6, 4), Cell::Empty);
@@ -240,10 +234,6 @@ TEST(must_break_five_rule)
     Move m { Pos { 5, 6 }, Player::White };
     PlayResult r2 = board.tryPlay(m, rules);
     ASSERT_TRUE(r2.success);
-
-    std::cout << "=== Après capture en (8,4) ===\n";
-    test_utils::print_board_region(board, 3, 10, 3, 10);
-
     ASSERT_EQ(board.status(), GameStatus::WinByAlign);
 
     TEST_PASSED();
