@@ -25,19 +25,19 @@ NC='\033[0m' # No Color
 
 # Fonctions utilitaires
 log_info() {
-    echo -e "${BLUE}ℹ️  $1${NC}"
+    echo -e "${BLUE} $1${NC}"
 }
 
 log_success() {
-    echo -e "${GREEN}✅ $1${NC}"
+    echo -e "${GREEN} $1${NC}"
 }
 
 log_warning() {
-    echo -e "${YELLOW}⚠️  $1${NC}"
+    echo -e "${YELLOW} $1${NC}"
 }
 
 log_error() {
-    echo -e "${RED}❌ $1${NC}"
+    echo -e "${RED} $1${NC}"
 }
 
 # Vérification des prérequis
@@ -105,8 +105,8 @@ compile_library() {
 
 # Installation principale
 main() {
-    echo "🚀 Installation de SFML $SFML_VERSION avec dépendances audio..."
-    echo "📁 Installation dans: $INSTALL_DIR"
+    echo "Installation de SFML $SFML_VERSION avec dépendances audio..."
+    echo "Installation dans: $INSTALL_DIR"
     echo ""
     
     # Vérifier les prérequis
@@ -178,8 +178,8 @@ main() {
     # Vérification finale
     echo ""
     log_info "Vérification de l'installation..."
-    echo "📁 Installation dans: $INSTALL_DIR"
-    echo "📚 Bibliothèques installées:"
+    echo "Installation dans: $INSTALL_DIR"
+    echo "Bibliothèques installées:"
     ls "$INSTALL_DIR"/lib/libsfml* 2>/dev/null | head -3 || echo "  - SFML"
     ls "$INSTALL_DIR"/lib/libopenal* 2>/dev/null | head -1 || echo "  - OpenAL"
     ls "$INSTALL_DIR"/lib/libvorbis* 2>/dev/null | head -1 || echo "  - Vorbis"
