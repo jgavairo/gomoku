@@ -10,6 +10,7 @@ extern void run_all_board_basic_tests();
 extern void run_all_alignment_tests();
 extern void run_all_capture_tests();
 extern void run_all_double_three_tests();
+extern void run_all_legality_tests();
 
 int main(int argc, char** argv)
 {
@@ -40,6 +41,7 @@ int main(int argc, char** argv)
     run_all_alignment_tests();
     run_all_capture_tests();
     run_all_double_three_tests();
+    run_all_legality_tests();
 
     return 0;
 }

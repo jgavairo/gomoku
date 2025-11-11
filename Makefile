@@ -81,7 +81,8 @@ TEST_SRC = \
 	tests/unit_tests/test_board_basics.cpp \
 	tests/unit_tests/test_alignment.cpp \
 	tests/unit_tests/test_captures.cpp \
-	tests/unit_tests/test_double_three.cpp
+	tests/unit_tests/test_double_three.cpp \
+	tests/unit_tests/test_legality.cpp
 
 # Objects
 CORE_OBJ = $(CORE_SRC:%.cpp=$(OBJ_DIR)/%.o)
