@@ -22,10 +22,8 @@ TEST(detect_five_horizontal)
     Board board;
     RuleSet rules;
 
-    // Placer 4 pierres avec setStone (plus rapide)
-    for (int x = 5; x <= 8; x++) {
-        board.setStone(Pos { static_cast<uint8_t>(x), 5 }, Cell::Black);
-    }
+    // Placer 4 pierres noires horizontalement
+    test_utils::set_horizontal(board, "XXXX", 5, 5);
 
     // Le 5ème coup avec tryPlay pour déclencher la détection
     Move last_move { Pos { 9, 5 }, Player::Black };
@@ -44,10 +42,8 @@ TEST(detect_five_vertical)
     Board board;
     RuleSet rules;
 
-    // Placer 4 pierres blanches avec setStone
-    for (int y = 3; y <= 6; y++) {
-        board.setStone(Pos { 7, static_cast<uint8_t>(y) }, Cell::White);
-    }
+    // Placer 4 pierres blanches verticalement
+    test_utils::set_vertical(board, "OOOO", 7, 3);
 
     // Forcer le joueur courant à White et jouer le 5ème coup
     board.forceSide(Player::White);
@@ -66,10 +62,8 @@ TEST(detect_five_diagonal_desc)
     Board board;
     RuleSet rules;
 
-    // Placer 4 pierres avec setStone
-    for (int i = 0; i < 4; i++) {
-        board.setStone(Pos { static_cast<uint8_t>(4 + i), static_cast<uint8_t>(4 + i) }, Cell::Black);
-    }
+    // Placer 4 pierres noires en diagonale descendante
+    test_utils::set_diagonal_desc(board, "XXXX", 4, 4);
 
     // Le 5ème coup avec tryPlay
     Move last_move { Pos { 8, 8 }, Player::Black };
@@ -88,10 +82,8 @@ TEST(detect_five_diagonal_asc)
     Board board;
     RuleSet rules;
 
-    // Placer 4 pierres avec setStone
-    for (int i = 0; i < 4; i++) {
-        board.setStone(Pos { static_cast<uint8_t>(4 + i), static_cast<uint8_t>(8 - i) }, Cell::White);
-    }
+    // Placer 4 pierres blanches en diagonale ascendante
+    test_utils::set_diagonal_asc(board, "OOOO", 4, 8);
 
     // Le 5ème coup avec tryPlay
     board.forceSide(Player::White);
@@ -110,10 +102,8 @@ TEST(detect_six_aligned)
     Board board;
     RuleSet rules;
 
-    // Placer 4 pierres avec setStone
-    for (int x = 3; x <= 6; x++) {
-        board.setStone(Pos { static_cast<uint8_t>(x), 10 }, Cell::Black);
-    }
+    // Placer 4 pierres noires horizontalement
+    test_utils::set_horizontal(board, "XXXX", 3, 10);
 
     // Le 5ème coup déclenche la victoire
     Move last_move { Pos { 7, 10 }, Player::Black };
@@ -132,10 +122,8 @@ TEST(detect_seven_aligned)
     Board board;
     RuleSet rules;
 
-    // Placer 4 pierres avec setStone
-    for (int y = 5; y <= 8; y++) {
-        board.setStone(Pos { 9, static_cast<uint8_t>(y) }, Cell::White);
-    }
+    // Placer 4 pierres blanches verticalement
+    test_utils::set_vertical(board, "OOOO", 9, 5);
 
     // Le 5ème coup déclenche la victoire
     board.forceSide(Player::White);
@@ -185,14 +173,9 @@ TEST(five_not_breakable_win)
     rules.capturesEnabled = true;
 
     // Black forme un 5 qui ne peut pas être cassé par capture
-    // Configuration simple: 5 noirs alignés sans possibilité de capture immédiate
-    for (int x = 5; x <= 9; x++) {
-        board.setStone(Pos { static_cast<uint8_t>(x), 5 }, Cell::Black);
-    }
+    test_utils::set_horizontal(board, "XXXXX", 5, 5);
 
-    // Aucune paire capturable autour
-    // White n'a aucun moyen de casser ce 5
-
+    // Aucune paire capturable autour - White n'a aucun moyen de casser ce 5
     board.forceSide(Player::Black);
 
     // Black joue à côté pour déclencher la vérification
@@ -215,14 +198,23 @@ TEST(must_break_five_rule)
     rules.allowFiveOrMore = true;
 
     // Configuration du plateau :
-    // Ligne 4: . . X O O .
-    // Ligne 5: . X O O O O O .
+    // Ligne 4: . . X
+    // Ligne 5: . . O
+    // Ligne 6: . . O O O O . 
     // White a 5 alignés en y=5, Black peut capturer la paire O-O en y=4
     test_utils::set_board(board, R"(
-        . . X O O .
-        . X O O O O O .
+        . . X .
+        . . O .
+        . . O O O O .
     )",
         3, 4);
+
+    board.forceSide(Player::White);
+    Move win { Pos { 9, 6 }, Player::White };
+    PlayResult r = board.tryPlay(win, rules);
+    ASSERT_TRUE(r.success);
+
+    ASSERT_EQ(board.status(), GameStatus::Ongoing);
 
     std::cout << "\n=== Configuration initiale (White a un 5 en y=5) ===\n";
     test_utils::print_board_region(board, 3, 10, 3, 10);
@@ -231,7 +223,7 @@ TEST(must_break_five_rule)
     board.forceSide(Player::Black);
 
     // Black capture les deux O en (6,4) et (7,4)
-    Move capture { Pos { 8, 4 }, Player::Black };
+    Move capture { Pos { 5, 7 }, Player::Black };
     PlayResult r1 = board.tryPlay(capture, rules);
     ASSERT_TRUE(r1.success);
 
@@ -245,6 +237,15 @@ TEST(must_break_five_rule)
     // Le jeu doit continuer (le 5 de White en y=5 existe toujours)
     ASSERT_EQ(board.status(), GameStatus::Ongoing);
 
+    Move m { Pos { 5, 6 }, Player::White };
+    PlayResult r2 = board.tryPlay(m, rules);
+    ASSERT_TRUE(r2.success);
+
+    std::cout << "=== Après capture en (8,4) ===\n";
+    test_utils::print_board_region(board, 3, 10, 3, 10);
+
+    ASSERT_EQ(board.status(), GameStatus::WinByAlign);
+
     TEST_PASSED();
 }
 
@@ -255,9 +256,7 @@ TEST(four_aligned_no_win)
     RuleSet rules;
 
     // Placer seulement 4 pierres noires horizontalement
-    for (int x = 5; x <= 8; x++) {
-        board.setStone(Pos { static_cast<uint8_t>(x), 7 }, Cell::Black);
-    }
+    test_utils::set_horizontal(board, "XXXX", 5, 7);
 
     board.forceSide(Player::Black);
     Move m { Pos { 10, 10 }, Player::Black };
@@ -278,9 +277,7 @@ TEST(detect_all_four_directions)
 
     // Test horizontal
     Board board_h;
-    for (int x = 0; x < 4; x++) {
-        board_h.setStone(Pos { static_cast<uint8_t>(x), 5 }, Cell::Black);
-    }
+    test_utils::set_horizontal(board_h, "XXXX", 0, 5);
     Move mh { Pos { 4, 5 }, Player::Black };
     PlayResult rh = board_h.tryPlay(mh, rules);
     ASSERT_TRUE(rh.success);
@@ -288,9 +285,7 @@ TEST(detect_all_four_directions)
 
     // Test vertical
     Board board_v;
-    for (int y = 0; y < 4; y++) {
-        board_v.setStone(Pos { 5, static_cast<uint8_t>(y) }, Cell::Black);
-    }
+    test_utils::set_vertical(board_v, "XXXX", 5, 0);
     Move mv { Pos { 5, 4 }, Player::Black };
     PlayResult rv = board_v.tryPlay(mv, rules);
     ASSERT_TRUE(rv.success);
@@ -298,9 +293,7 @@ TEST(detect_all_four_directions)
 
     // Test diagonale descendante (backslash)
     Board board_d1;
-    for (int i = 0; i < 4; i++) {
-        board_d1.setStone(Pos { static_cast<uint8_t>(i), static_cast<uint8_t>(i) }, Cell::Black);
-    }
+    test_utils::set_diagonal_desc(board_d1, "XXXX", 0, 0);
     Move md1 { Pos { 4, 4 }, Player::Black };
     PlayResult rd1 = board_d1.tryPlay(md1, rules);
     ASSERT_TRUE(rd1.success);
@@ -308,9 +301,7 @@ TEST(detect_all_four_directions)
 
     // Test diagonale ascendante (slash)
     Board board_d2;
-    for (int i = 0; i < 4; i++) {
-        board_d2.setStone(Pos { static_cast<uint8_t>(i), static_cast<uint8_t>(4 - i) }, Cell::Black);
-    }
+    test_utils::set_diagonal_asc(board_d2, "XXXX", 0, 4);
     Move md2 { Pos { 4, 0 }, Player::Black };
     PlayResult rd2 = board_d2.tryPlay(md2, rules);
     ASSERT_TRUE(rd2.success);

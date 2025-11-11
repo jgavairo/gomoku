@@ -37,7 +37,7 @@ inline std::vector<std::pair<std::string, std::function<void()>>>& get_test_regi
 #define ASSERT_TRUE(expr)                                                            \
     do {                                                                             \
         if (!(expr)) {                                                               \
-            std::cerr << "  ❌ FAILED: " << #expr << " (line " << __LINE__ << ")\n"; \
+            std::cerr << "  x FAILED: " << #expr << " (line " << __LINE__ << ")\n"; \
             test_framework::tests_failed++;                                          \
             return;                                                                  \
         }                                                                            \
@@ -65,9 +65,9 @@ inline void print_summary(const std::string& test_suite_name)
     std::cout << "═══════════════════════════════════════════════\n";
 
     if (tests_failed == 0) {
-        std::cout << "  🎉 All tests passed!\n";
+        std::cout << "  All tests passed!\n";
     } else {
-        std::cout << "  ⚠️  Some tests failed.\n";
+        std::cout << "  Some tests failed.\n";
     }
     std::cout << "\n";
 }

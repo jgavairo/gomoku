@@ -8,6 +8,7 @@
 // Déclarations externes (C++ linkage)
 extern void run_all_board_basic_tests();
 extern void run_all_alignment_tests();
+extern void run_all_capture_tests();
 
 int main(int argc, char** argv)
 {
@@ -36,6 +37,7 @@ int main(int argc, char** argv)
     // Exécuter tous les tests enregistrés
     run_all_board_basic_tests();
     run_all_alignment_tests();
+    run_all_capture_tests();
 
     return 0;
 }
