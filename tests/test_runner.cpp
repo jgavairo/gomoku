@@ -11,6 +11,7 @@ extern void run_all_alignment_tests();
 extern void run_all_capture_tests();
 extern void run_all_double_three_tests();
 extern void run_all_legality_tests();
+extern void run_all_reversibility_tests();
 
 int main(int argc, char** argv)
 {
@@ -42,6 +43,7 @@ int main(int argc, char** argv)
     run_all_capture_tests();
     run_all_double_three_tests();
     run_all_legality_tests();
+    run_all_reversibility_tests();
 
     return 0;
 }

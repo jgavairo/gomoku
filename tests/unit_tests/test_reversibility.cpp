@@ -58,7 +58,7 @@ TEST(move_with_capture_undo_restores_stones)
     test_utils::set_horizontal(board, "XOO", 5, 5);
 
     uint64_t hashBefore = board.zobristKey();
-    CapturedPairs capsBefore = board.capturedPairs();
+    CaptureCount capsBefore = board.capturedPairs();
 
     // Faire une capture
     board.forceSide(Player::Black);
