@@ -5,6 +5,23 @@
 
 set -e
 
+# ================================= COLORS =================================== #
+RESET='\033[0m'
+BOLD='\033[1m'
+RED='\033[31m'
+GREEN='\033[32m'
+YELLOW='\033[33m'
+BLUE='\033[34m'
+MAGENTA='\033[35m'
+CYAN='\033[36m'
+
+# =============================== MESSAGES ================================== #
+MSG_INFO="${BLUE}[INFO]${RESET}"
+MSG_SUCCESS="${GREEN}[SUCCESS]${RESET}"
+MSG_ERROR="${RED}[ERROR]${RESET}"
+MSG_INSTALL="${GREEN}[INSTALL]${RESET}"
+
+# ============================= CONFIGURATION ================================ #
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 DESKTOP_DIR="$SCRIPT_DIR"
@@ -13,39 +30,39 @@ ICON_DEST="$DESKTOP_DIR/gomicon.png"
 DESKTOP_TEMPLATE="$DESKTOP_DIR/gomoku.desktop.template"
 DESKTOP_FILE="$DESKTOP_DIR/gomoku.desktop"
 
-echo "[INSTALL-DESKTOP] Setting up desktop integration"
+printf "${MSG_INSTALL} Setting up desktop integration\n"
 
 # Vérifier que le template existe
 if [ ! -f "$DESKTOP_TEMPLATE" ]; then
-    echo "[INSTALL-DESKTOP] Error: Template not found at $DESKTOP_TEMPLATE"
+    printf "${MSG_ERROR} Template not found at ${BOLD}$DESKTOP_TEMPLATE${RESET}\n"
     exit 1
 fi
 
 # Vérifier que l'exécutable existe
 if [ ! -f "$BIN_PATH" ]; then
-    echo "[INSTALL-DESKTOP] Error: Executable not found at $BIN_PATH"
-    echo "[INSTALL-DESKTOP] Please compile first with 'make'"
+    printf "${MSG_ERROR} Executable not found at ${BOLD}$BIN_PATH${RESET}\n"
+    printf "${MSG_INFO} Please compile first with ${BOLD}'make'${RESET}\n"
     exit 1
 fi
 
 # Vérifier que l'icône existe
 if [ ! -f "$ICON_DEST" ]; then
-    echo "[INSTALL-DESKTOP] Error: Icon file not found at $ICON_DEST"
-    echo "[INSTALL-DESKTOP] Make sure gomicon.png is in desktop/ directory"
+    printf "${MSG_ERROR} Icon file not found at ${BOLD}$ICON_DEST${RESET}\n"
+    printf "${MSG_INFO} Make sure gomicon.png is in desktop/ directory\n"
     exit 1
 fi
 
-echo "[INSTALL-DESKTOP] Icon found: $ICON_DEST"
+printf "${MSG_SUCCESS} Icon found: ${BOLD}$ICON_DEST${RESET}\n"
 
 # Générer le fichier .desktop depuis le template
-echo "[INSTALL-DESKTOP] Generating launcher from template..."
+printf "${MSG_INFO} Generating launcher from template...\n"
 sed "s|{{BIN_PATH}}|$BIN_PATH|g; s|{{ICON_PATH}}|$ICON_DEST|g; s|{{PROJECT_DIR}}|$PROJECT_DIR|g" \
     "$DESKTOP_TEMPLATE" > "$DESKTOP_FILE"
 
 # Rendre le fichier .desktop exécutable
 chmod +x "$DESKTOP_FILE"
 
-echo "[INSTALL-DESKTOP] Desktop file generated: $DESKTOP_FILE"
+printf "${MSG_SUCCESS} Desktop file generated: ${BOLD}$DESKTOP_FILE${RESET}\n"
 
 # Copier le fichier .desktop vers les emplacements appropriés
 USER_DESKTOP_DIR="$HOME/Desktop"
@@ -56,19 +73,19 @@ mkdir -p "$USER_APPLICATIONS_DIR"
 
 # Copier vers le répertoire des applications
 cp "$DESKTOP_FILE" "$USER_APPLICATIONS_DIR/"
-echo "[INSTALL-DESKTOP] Launcher installed to applications menu"
+printf "${MSG_INSTALL} Launcher installed to applications menu\n"
 
 # Copier vers le bureau si le répertoire existe
 if [ -d "$USER_DESKTOP_DIR" ]; then
     cp "$DESKTOP_FILE" "$USER_DESKTOP_DIR/"
     chmod +x "$USER_DESKTOP_DIR/gomoku.desktop"
-    echo "[INSTALL-DESKTOP] Launcher added to desktop"
+    printf "${MSG_INSTALL} Launcher added to desktop\n"
 fi
 
 # Mettre à jour la base de données des applications
 if command -v update-desktop-database >/dev/null 2>&1; then
     update-desktop-database "$USER_APPLICATIONS_DIR"
-    echo "[INSTALL-DESKTOP] Application database updated"
+    printf "${MSG_INFO} Application database updated\n"
 fi
 
-echo "[INSTALL-DESKTOP] Installation completed successfully"
+printf "${MSG_SUCCESS} Installation completed successfully\n"
