@@ -91,6 +91,9 @@ namespace {
                 rects.push_back(r);
                 islandCount++;
             }
+
+        Logger::getInstance().debug("CandidateGen: Built {} islands from {} stones (gap={})",
+            islandCount, n, (int)gap);
         return rects;
     }
 
@@ -116,14 +119,20 @@ namespace {
             }
         nextOuter:;
         }
+        Logger::getInstance().debug("CandidateGen: Merged {} rectangles ({} merge operations)",
+            rs.size(), mergeCount);
         return rs;
     }
 
     std::vector<Rect> dilateAndMerge(std::vector<Rect> rs, int effMargin)
     {
+        size_t beforeDilate = rs.size();
         for (auto& r : rs)
             r = dilate(r, effMargin);
-        return mergeAll(std::move(rs));
+        auto result = mergeAll(std::move(rs));
+        Logger::getInstance().debug("CandidateGen: Dilate+Merge {} -> {} rects (margin={})",
+            beforeDilate, result.size(), effMargin);
+        return result;
     }
 
     //-------------------------------------------
@@ -215,11 +224,13 @@ namespace {
         const auto& ring = diamondOffsets(cfg.ringR);
         out.reserve(cfg.maxCandidates);
 
+        size_t stonesProcessed = 0;
         if (cfg.includeOpponentRing) {
             for (const auto& p : stones) {
                 emitNeighborhood(b, active, ring, p.x, p.y, toPlay, cfg.maxCandidates, seen, out);
+                stonesProcessed++;
                 if (out.size() >= cfg.maxCandidates)
-                    return;
+                    break;
             }
         } else {
             const Cell mine = (toPlay == Player::Black ? Cell::Black : Cell::White);
@@ -227,10 +238,14 @@ namespace {
                 if (b.at(p.x, p.y) != mine)
                     continue;
                 emitNeighborhood(b, active, ring, p.x, p.y, toPlay, cfg.maxCandidates, seen, out);
+                stonesProcessed++;
                 if (out.size() >= cfg.maxCandidates)
-                    return;
+                    break;
             }
         }
+
+        Logger::getInstance().debug("CandidateGen: Ring generation from {} stones (ringR={}) -> {} candidates",
+            stonesProcessed, (int)cfg.ringR, out.size());
     }
 
     //-------------------------------------------
@@ -244,6 +259,7 @@ namespace {
         SeenSet& seen,
         std::vector<Move>& out)
     {
+        size_t beforeFallback = out.size();
         for (const auto& r : rects) {
             for (int y = r.y1; y <= r.y2; ++y)
                 for (int x = r.x1; x <= r.x2; ++x) {
@@ -255,8 +271,15 @@ namespace {
                         continue;
                     out.push_back(Move { { (uint8_t)x, (uint8_t)y }, toPlay });
                     if (out.size() >= cfg.maxCandidates)
-                        return;
+                        break;
                 }
+            if (out.size() >= cfg.maxCandidates)
+                break;
+        }
+
+        if (out.size() > beforeFallback) {
+            Logger::getInstance().debug("CandidateGen: Fallback scan added {} candidates ({} -> {})",
+                out.size() - beforeFallback, beforeFallback, out.size());
         }
     }
 
@@ -290,14 +313,17 @@ std::vector<Move> CandidateGenerator::generate(const Board& b, const RuleSet& ru
 
     // 0) Plateau vide -> centre
     if (isEmptyBoard(b)) {
-        LOG_INFO("Empty board detected - center move");
+        Logger::getInstance().debug("CandidateGen: Empty board detected - returning center move");
         Move c { { (uint8_t)(BOARD_SIZE / 2), (uint8_t)(BOARD_SIZE / 2) }, toPlay };
         return { c };
     }
 
+    Logger::getInstance().debug("=== CandidateGenerator Pipeline Start ===");
+
     // 1) Collecte des pierres
     std::vector<P> stones;
     collectStones(b, stones);
+    Logger::getInstance().debug("CandidateGen: Collected {} stones on board", stones.size());
 
     // 2) Îlots (BFS Chebyshev) -> dilatation(>=ringR) -> fusion
     auto rects = buildIslands(stones, cfg.groupGap);
@@ -306,6 +332,13 @@ std::vector<Move> CandidateGenerator::generate(const Board& b, const RuleSet& ru
 
     // 3) Masque des zones actives
     ActiveMask active = buildActiveMask(rects);
+    int activeCells = 0;
+    for (int i = 0; i < BOARD_CELLS; ++i) {
+        if (active[i])
+            activeCells++;
+    }
+    Logger::getInstance().debug("CandidateGen: Active mask covers {} cells ({:.1f}% of board)",
+        activeCells, (activeCells * 100.0) / BOARD_CELLS);
 
     // 4–5) Anneaux (Manhattan <= ringR) clampés par masque + dédup bitset
     SeenSet seen;
@@ -314,11 +347,21 @@ std::vector<Move> CandidateGenerator::generate(const Board& b, const RuleSet& ru
 
     // 6) Fallback scan si densité insuffisante
     if (out.size() < 12) {
+        Logger::getInstance().debug("CandidateGen: Low density ({} candidates), triggering fallback scan", out.size());
         fallbackScan(b, rects, active, toPlay, cfg, seen, out);
     }
 
     // 7) Finalisation
+    size_t beforeCap = out.size();
     finalizeCandidates(out, cfg.maxCandidates);
+
+    if (beforeCap > cfg.maxCandidates) {
+        Logger::getInstance().debug("CandidateGen: Capped {} candidates to max {}", beforeCap, cfg.maxCandidates);
+    }
+
+    Logger::getInstance().debug("CandidateGen: Final output: {} candidates (max={})", out.size(), cfg.maxCandidates);
+    Logger::getInstance().debug("=== CandidateGenerator Pipeline End ===");
+
     return out;
 }
 

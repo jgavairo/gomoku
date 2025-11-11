@@ -1,7 +1,9 @@
 #include "gomoku/ai/MoveOrderer.hpp"
 #include "gomoku/ai/CandidateGenerator.hpp"
 #include "gomoku/ai/Evaluator.hpp"
+#include "util/Logger.hpp"
 #include <algorithm>
+#include <limits>
 
 namespace gomoku {
 MoveOrderer::ScopedPlay::ScopedPlay(Board& board, const Move& move, const RuleSet& rules)
@@ -107,12 +109,19 @@ std::vector<Move> MoveOrderer::order(Board& board,
     if (moves.empty())
         return moves;
 
+    Logger::getInstance().debug("=== MoveOrderer Pipeline Start ===");
+    Logger::getInstance().debug("MoveOrderer: Initial moves: {} (from {})",
+        (int)moves.size(), baseMoves ? "baseMoves" : "CandidateGenerator");
+
     // 2) TT-first (si présent dans la liste)
     if (cfg_.forceTTFirst && ttMove && ttMove->isValid()) {
         auto it = std::find_if(moves.begin(), moves.end(),
             [&ttMove](const Move& m) { return m.pos == ttMove->pos; });
-        if (it != moves.end())
+        if (it != moves.end()) {
             std::iter_swap(moves.begin(), it);
+            Logger::getInstance().debug("MoveOrderer: TT move found and promoted to front ({},{})",
+                (int)ttMove->pos.x, (int)ttMove->pos.y);
+        }
     }
 
     // 3) Score spéculatif + bonus heuristiques (killers/history)
@@ -145,11 +154,20 @@ std::vector<Move> MoveOrderer::order(Board& board,
         scored.push_back({ m, s, /*tie*/ 0 });
     }
 
+    Logger::getInstance().debug("MoveOrderer: Scored {} legal moves (from {} initial, {} discarded)",
+        (int)scored.size(), (int)moves.size(), (int)(moves.size() - start - scored.size()));
+
     std::sort(scored.begin(), scored.end(), [](const Scored& a, const Scored& b) {
         if (a.s != b.s)
             return a.s > b.s;
         return a.tie > b.tie;
     });
+
+    // Log score range
+    if (!scored.empty()) {
+        Logger::getInstance().debug("MoveOrderer: Score range [{} ... {}] over {} moves",
+            scored.back().s, scored.front().s, (int)scored.size());
+    }
 
     // 4) Cap
     const int cap = capForDepth(depth);
@@ -159,6 +177,10 @@ std::vector<Move> MoveOrderer::order(Board& board,
         out.push_back(moves.front());
     for (int i = 0; i < (int)scored.size() && (int)out.size() < (ttFirst ? 1 : 0) + cap; ++i)
         out.push_back(scored[i].m);
+
+    Logger::getInstance().debug("MoveOrderer: Final output {} moves (cap={}, depth={}, ttFirst={})",
+        (int)out.size(), cap, depth, ttFirst ? 1 : 0);
+    Logger::getInstance().debug("=== MoveOrderer Pipeline End ===");
 
     return out;
 }

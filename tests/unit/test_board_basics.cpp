@@ -2,7 +2,7 @@
 #include "gomoku/core/Board.hpp"
 #include "gomoku/core/Types.hpp"
 #include "gomoku/core/Zobrist.hpp"
-#include "test_framework.hpp"
+#include "../framework/test_framework.hpp"
 #include <iostream>
 
 using namespace gomoku;

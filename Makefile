@@ -42,7 +42,8 @@ OBJ_DIR = $(BUILD_DIR)/obj
 # Target names
 TARGET = bin/Gomoku                # GUI executable (SFML)
 LIB_NAME = lib/libgomoku_logic.a   # static library logic/AI
-TEST_BIN = bin/tests_runner        # test binary (without SFML)
+TEST_BIN = bin/tests_runner        # unit test binary (without SFML)
+EVAL_BIN = bin/evaluate_runner     # AI evaluation binary (without SFML)
 
 # Source groups
 CORE_SRC = \
@@ -76,23 +77,30 @@ GUI_SRC = \
 	$(SRC_DIR)/gui/ResourceManager.cpp \
 	$(SRC_DIR)/util/Preferences.cpp
 
-TEST_SRC = \
+# Unit tests (core functionality)
+UNIT_TEST_SRC = \
 	tests/test_runner.cpp \
-	tests/unit_tests/test_board_basics.cpp \
-	tests/unit_tests/test_alignment.cpp \
-	tests/unit_tests/test_captures.cpp \
-	tests/unit_tests/test_double_three.cpp \
-	tests/unit_tests/test_legality.cpp \
-	tests/unit_tests/test_reversibility.cpp
+	tests/unit/test_board_basics.cpp \
+	tests/unit/test_alignment.cpp \
+	tests/unit/test_captures.cpp \
+	tests/unit/test_double_three.cpp \
+	tests/unit/test_legality.cpp \
+	tests/unit/test_reversibility.cpp
+
+# AI evaluation tests (performance analysis)
+EVAL_TEST_SRC = \
+	tests/evaluate_runner.cpp \
+	tests/evaluation/ai_performance.cpp
 
 # Objects
 CORE_OBJ = $(CORE_SRC:%.cpp=$(OBJ_DIR)/%.o)
 GUI_OBJ  = $(GUI_SRC:%.cpp=$(OBJ_DIR)/%.o)
-TEST_OBJ = $(TEST_SRC:%.cpp=$(OBJ_DIR)/%.o)
+UNIT_TEST_OBJ = $(UNIT_TEST_SRC:%.cpp=$(OBJ_DIR)/%.o)
+EVAL_TEST_OBJ = $(EVAL_TEST_SRC:%.cpp=$(OBJ_DIR)/%.o)
 
 # Generate dependency files (.d)
 CXXFLAGS += -MMD
-DEPFILES := $(CORE_OBJ:%.o=%.d) $(GUI_OBJ:%.o=%.d) $(TEST_OBJ:%.o=%.d)
+DEPFILES := $(CORE_OBJ:%.o=%.d) $(GUI_OBJ:%.o=%.d) $(UNIT_TEST_OBJ:%.o=%.d) $(EVAL_TEST_OBJ:%.o=%.d)
 
 # Default rule: check dependencies, build and install
 all: check-deps-auto $(TARGET) install
@@ -131,10 +139,15 @@ $(TARGET): $(GUI_OBJ) $(LIB_NAME)
 	@echo "[LD] $@"
 	$(Q)$(CXX) $(GUI_OBJ) $(LIB_NAME) $(SFML_LIBS) $(SFML_RPATH) $(LDFLAGS) -o $@
 
-# Tests: binary without SFML, linked against the core lib
-$(TEST_BIN): $(TEST_OBJ) $(LIB_NAME)
+# Unit tests: binary without SFML, linked against the core lib
+$(TEST_BIN): $(UNIT_TEST_OBJ) $(LIB_NAME)
 	@echo "[LD] $@"
-	$(Q)$(CXX) $(TEST_OBJ) $(LIB_NAME) -o $@
+	$(Q)$(CXX) $(UNIT_TEST_OBJ) $(LIB_NAME) -o $@
+
+# AI evaluation: binary without SFML, linked against the core lib
+$(EVAL_BIN): $(EVAL_TEST_OBJ) $(LIB_NAME)
+	@echo "[LD] $@"
+	$(Q)$(CXX) $(EVAL_TEST_OBJ) $(LIB_NAME) -o $@
 
 # Rule to compile objects (common)
 $(OBJ_DIR)/%.o: %.cpp
@@ -244,9 +257,20 @@ check-deps:
 # Convenient targets
 lib: $(LIB_NAME)
 
-# Build and run tests
+# Build and run unit tests
 test: $(TEST_BIN)
-	./$(TEST_BIN) -v
+	@echo ""
+	@echo "Running unit tests..."
+	@echo ""
+	./$(TEST_BIN)
+
+# Build and run AI evaluation/analysis
+evaluate: $(EVAL_BIN)
+	@echo ""
+	@echo "Running AI evaluation and performance analysis..."
+	@echo "Tip: Use 'make evaluate ARGS=\"-d\"' for detailed debug logs"
+	@echo ""
+	./$(EVAL_BIN) $(ARGS)
 
 # Environment variables for SFML (runtime)
 # (Optional) Uncomment to propagate SFML libs path at runtime
@@ -257,4 +281,4 @@ test: $(TEST_BIN)
 -include $(wildcard $(DEPFILES))
 
 # Phony rules
-.PHONY: all build check-deps-auto debug clean fclean re install uninstall install-desktop uninstall-desktop help check-deps test SFML lib setup
+.PHONY: all build check-deps-auto debug clean fclean re install uninstall install-desktop uninstall-desktop help check-deps test evaluate SFML lib setup
