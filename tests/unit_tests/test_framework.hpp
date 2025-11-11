@@ -1,5 +1,5 @@
 #pragma once
-// Mini framework de test simple pour les tests unitaires Gomoku
+// Simple test framework for Gomoku unit tests
 #include <functional>
 #include <iostream>
 #include <string>
@@ -7,11 +7,11 @@
 
 namespace test_framework {
 
-// Compteurs globaux de tests
+// Global test counters
 static int tests_passed = 0;
 static int tests_failed = 0;
 
-// Registre des tests
+// Test registry
 static std::vector<std::pair<std::string, std::function<void()>>>* test_registry = nullptr;
 
 inline std::vector<std::pair<std::string, std::function<void()>>>& get_test_registry()
@@ -22,7 +22,7 @@ inline std::vector<std::pair<std::string, std::function<void()>>>& get_test_regi
     return *test_registry;
 }
 
-// Macros pour définir les tests
+// Macro for defining a test case
 #define TEST(name)                                                                 \
     void test_##name();                                                            \
     static struct TestRegistrar_##name {                                           \
@@ -33,7 +33,7 @@ inline std::vector<std::pair<std::string, std::function<void()>>>& get_test_regi
     } registrar_##name;                                                            \
     void test_##name()
 
-// Macros d'assertion
+// Assertion macros
 #define ASSERT_TRUE(expr)                                                            \
     do {                                                                             \
         if (!(expr)) {                                                               \
@@ -53,7 +53,7 @@ inline std::vector<std::pair<std::string, std::function<void()>>>& get_test_regi
         std::cout << "  ✓ " << __func__ << " passed\n"; \
     } while (0)
 
-// Fonction utilitaire pour afficher un résumé
+// Utilitary function to print a summary
 inline void print_summary(const std::string& test_suite_name)
 {
     std::cout << "\n";
@@ -72,7 +72,7 @@ inline void print_summary(const std::string& test_suite_name)
     std::cout << "\n";
 }
 
-// Fonction pour exécuter tous les tests enregistrés
+// Function to run all registered tests
 inline void run_all_tests(const std::string& test_suite_name)
 {
     std::cout << "Running " << test_suite_name << " Tests...\n";

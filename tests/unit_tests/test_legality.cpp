@@ -1,4 +1,4 @@
-// Tests unitaires pour la légalité globale et cas limites
+// Unit tests for global legality and edge cases
 #include "../utils/BoardBuilder.hpp"
 #include "../utils/BoardPrinter.hpp"
 #include "gomoku/core/Board.hpp"
@@ -13,10 +13,10 @@ using namespace test_framework;
 void run_all_legality_tests();
 
 // ============================================================================
-// Tests 5) Légalité globale et ordre d'évaluation
+// Tests 5) Global legality and evaluation order
 // ============================================================================
 
-// Test 5.1: Ordre d'évaluation - Pose → Captures → Victoires
+// Test 5.1: Evaluation order - Placement → Captures → Victories
 TEST(evaluation_order_capture_then_victory)
 {
     Board board;
@@ -24,8 +24,8 @@ TEST(evaluation_order_capture_then_victory)
     rules.capturesEnabled = true;
     rules.captureWinPairs = 5;
 
-    // Black a déjà 4 paires capturées
-    // On va créer 4 captures directement puis la 5ème
+    // Black has already captured 4 pairs
+    // We will create 4 captures directly then the 5th
     for (int i = 0; i < 4; i++) {
         test_utils::set_horizontal(board, "XOO", 2 + i * 3, 2 + i);
         board.forceSide(Player::Black);
@@ -34,7 +34,7 @@ TEST(evaluation_order_capture_then_victory)
 
     ASSERT_EQ(board.capturedPairs().black, 4);
 
-    // Dernière capture atteint 5 paires
+    // Last capture reaches 5 pairs
     test_utils::set_horizontal(board, "XOO", 2, 15);
     board.forceSide(Player::Black);
     PlayResult r = board.tryPlay(Move { Pos { 5, 15 }, Player::Black }, rules);
@@ -46,47 +46,47 @@ TEST(evaluation_order_capture_then_victory)
     TEST_PASSED();
 }
 
-// Test 5.2: Coup illégal → Aucune victoire déclarée
+// Test 5.2: Illegal move → No victory declared
 TEST(illegal_move_no_victory)
 {
     Board board;
     RuleSet rules;
     rules.forbidDoubleThree = true;
 
-    // Configuration: 2 free-threes (double-trois illégal pour Black)
+    // Configuration: 2 free-threes (illegal double-three for Black)
     // Horizontal: .XX at row 5, playing at (8,5) makes .XXX
     test_utils::set_horizontal(board, ".XX", 5, 5);
     // Vertical: .XX at col 8, playing at (8,5) makes .XXX
     test_utils::set_vertical(board, ".XX", 8, 2);
 
     board.forceSide(Player::Black);
-    Move illegal { Pos { 8, 5 }, Player::Black }; // Complète les 2 free-threes
+    Move illegal { Pos { 8, 5 }, Player::Black }; // Completes the 2 free-threes
     PlayResult r = board.tryPlay(illegal, rules);
 
-    // Le coup doit être refusé
+    // The move must be rejected
     ASSERT_FALSE(r.success);
 
-    // Le statut doit rester Ongoing (pas de victoire)
+    // Status must remain Ongoing (no victory)
     ASSERT_EQ(board.status(), GameStatus::Ongoing);
 
-    // La position ne doit pas être occupée
+    // The position must not be occupied
     ASSERT_EQ(board.at(8, 5), Cell::Empty);
 
     TEST_PASSED();
 }
 
-// Test 5.3: Coup illégal → Board inchangé (rollback complet)
+// Test 5.3: Illegal move → Board unchanged (complete rollback)
 TEST(illegal_move_board_unchanged)
 {
     Board board;
     RuleSet rules;
     rules.forbidDoubleThree = true;
 
-    // Configuration: 2 free-threes pour créer double-trois
+    // Configuration: 2 free-threes to create double-three
     test_utils::set_horizontal(board, ".XX", 5, 5);
     test_utils::set_vertical(board, ".XX", 8, 2);
 
-    // Sauvegarder l'état du board
+    // Save board state
     uint64_t hashBefore = board.zobristKey();
 
     board.forceSide(Player::Black);
@@ -95,32 +95,32 @@ TEST(illegal_move_board_unchanged)
 
     ASSERT_FALSE(r.success);
 
-    // Le hash ne doit pas avoir changé
+    // Hash must not have changed
     ASSERT_EQ(board.zobristKey(), hashBefore);
 
-    // Le joueur courant ne doit pas avoir changé
+    // Current player must not have changed
     ASSERT_EQ(board.toPlay(), Player::Black);
 
-    // La position ne doit pas être occupée
+    // The position must not be occupied
     ASSERT_EQ(board.at(8, 5), Cell::Empty);
 
     TEST_PASSED();
 }
 
-// Test 5.4: Pas de capture fantôme - Diagonale avec trou
+// Test 5.4: No phantom capture - Diagonal with gap
 TEST(no_phantom_capture_diagonal_gap)
 {
     Board board;
     RuleSet rules;
     rules.capturesEnabled = true;
 
-    // Configuration: X O . O X (trou au milieu)
-    // Ce n'est PAS capturable car il y a un trou
+    // Configuration: X O . O X (gap in the middle)
+    // This is NOT capturable because there is a gap
     test_utils::set_diagonal_desc(board, "XO", 5, 5);
     test_utils::set_diagonal_desc(board, "O", 8, 8);
     test_utils::set_diagonal_desc(board, "X", 9, 9);
 
-    // On va plutôt construire sans la dernière pierre
+    // We will rather build without the last stone
     Board board2;
     test_utils::set_diagonal_desc(board2, "XO", 5, 5);
     test_utils::set_diagonal_desc(board2, "O", 8, 8);
@@ -129,7 +129,7 @@ TEST(no_phantom_capture_diagonal_gap)
     PlayResult r = board2.tryPlay(Move { Pos { 9, 9 }, Player::Black }, rules);
     ASSERT_TRUE(r.success);
 
-    // Aucune capture ne doit avoir lieu (trou en position 7,7)
+    // No capture should occur (gap at position 7,7)
     ASSERT_EQ(board2.at(6, 6), Cell::White);
     ASSERT_EQ(board2.at(8, 8), Cell::White);
     ASSERT_EQ(board2.capturedPairs().black, 0);
@@ -137,14 +137,14 @@ TEST(no_phantom_capture_diagonal_gap)
     TEST_PASSED();
 }
 
-// Test 5.5: Pas de capture fantôme - Seulement 1 pierre entre deux
+// Test 5.5: No phantom capture - Only 1 stone between two
 TEST(no_phantom_capture_single_stone)
 {
     Board board;
     RuleSet rules;
     rules.capturesEnabled = true;
 
-    // Configuration: X O X (seulement 1 pierre, pas capturable)
+    // Configuration: X O X (only 1 stone, not capturable)
     test_utils::set_horizontal(board, "XO", 5, 5);
 
     board.forceSide(Player::Black);
@@ -152,21 +152,21 @@ TEST(no_phantom_capture_single_stone)
     PlayResult r = board.tryPlay(m, rules);
     ASSERT_TRUE(r.success);
 
-    // La pierre O ne doit PAS être capturée
+    // Stone O must NOT be captured
     ASSERT_EQ(board.at(6, 5), Cell::White);
     ASSERT_EQ(board.capturedPairs().black, 0);
 
     TEST_PASSED();
 }
 
-// Test 5.6: Pas de capture fantôme - 3 pierres ou plus
+// Test 5.6: No phantom capture - 3 or more stones
 TEST(no_phantom_capture_three_stones)
 {
     Board board;
     RuleSet rules;
     rules.capturesEnabled = true;
 
-    // Configuration: X O O O X (3 pierres, pas capturable)
+    // Configuration: X O O O X (3 stones, not capturable)
     test_utils::set_horizontal(board, "XOOO", 5, 5);
 
     board.forceSide(Player::Black);
@@ -174,7 +174,7 @@ TEST(no_phantom_capture_three_stones)
     PlayResult r = board.tryPlay(m, rules);
     ASSERT_TRUE(r.success);
 
-    // Aucune pierre ne doit être capturée
+    // No stone should be captured
     ASSERT_EQ(board.at(6, 5), Cell::White);
     ASSERT_EQ(board.at(7, 5), Cell::White);
     ASSERT_EQ(board.at(8, 5), Cell::White);
@@ -183,14 +183,14 @@ TEST(no_phantom_capture_three_stones)
     TEST_PASSED();
 }
 
-// Test 5.7: Capture valide exactement 2 pierres consécutives
+// Test 5.7: Valid capture exactly 2 consecutive stones
 TEST(valid_capture_exactly_two_stones)
 {
     Board board;
     RuleSet rules;
     rules.capturesEnabled = true;
 
-    // Configuration: X O O X (exactement 2 pierres)
+    // Configuration: X O O X (exactly 2 stones)
     test_utils::set_horizontal(board, "XOO", 5, 5);
 
     board.forceSide(Player::Black);
@@ -198,7 +198,7 @@ TEST(valid_capture_exactly_two_stones)
     PlayResult r = board.tryPlay(m, rules);
     ASSERT_TRUE(r.success);
 
-    // Les 2 pierres doivent être capturées
+    // The 2 stones must be captured
     ASSERT_EQ(board.at(6, 5), Cell::Empty);
     ASSERT_EQ(board.at(7, 5), Cell::Empty);
     ASSERT_EQ(board.capturedPairs().black, 1);
@@ -206,7 +206,7 @@ TEST(valid_capture_exactly_two_stones)
     TEST_PASSED();
 }
 
-// Test 5.8: Free-threes comptés APRÈS captures
+// Test 5.8: Free-threes counted AFTER captures
 TEST(free_three_after_captures_applied)
 {
     Board board;
@@ -214,43 +214,43 @@ TEST(free_three_after_captures_applied)
     rules.capturesEnabled = true;
     rules.forbidDoubleThree = true;
 
-    // Configuration simplifiée:
-    // Un free-three horizontal + une capture verticale
+    // Simplified configuration:
+    // One horizontal free-three + one vertical capture
     test_utils::set_horizontal(board, ".XX", 5, 5);
     test_utils::set_horizontal(board, "X", 9, 5);
 
-    // Paire capturable verticale
+    // Vertical capturable pair
     test_utils::set_vertical(board, "XOO", 8, 2);
 
     board.forceSide(Player::Black);
     Move m { Pos { 8, 5 }, Player::Black };
     PlayResult r = board.tryPlay(m, rules);
 
-    // Le coup doit être accepté (la capture se fait avant le compte des free-threes)
+    // Move must be accepted (capture happens before free-three count)
     ASSERT_TRUE(r.success);
 
-    // Vérifier que la capture a eu lieu
+    // Verify capture occurred
     ASSERT_EQ(board.capturedPairs().black, 1);
 
     TEST_PASSED();
 }
 
-// Test 5.9: Victoire détectée après captures appliquées
+// Test 5.9: Victory detected after captures applied
 TEST(victory_detected_after_captures)
 {
     Board board;
     RuleSet rules;
     rules.capturesEnabled = true;
-    rules.captureWinPairs = 2; // Seulement 2 paires pour simplifier
+    rules.captureWinPairs = 2; // Only 2 pairs to simplify
 
-    // Black capture 1 paire
+    // Black captures 1 pair
     test_utils::set_horizontal(board, "XOO", 2, 2);
     board.forceSide(Player::Black);
     board.tryPlay(Move { Pos { 5, 2 }, Player::Black }, rules);
 
     ASSERT_EQ(board.capturedPairs().black, 1);
 
-    // Dernière capture pour atteindre 2 paires
+    // Last capture to reach 2 pairs
     test_utils::set_horizontal(board, "XOO", 7, 7);
     board.forceSide(Player::Black);
     Move final_capture { Pos { 10, 7 }, Player::Black };
@@ -259,64 +259,64 @@ TEST(victory_detected_after_captures)
     ASSERT_TRUE(r.success);
     ASSERT_EQ(board.capturedPairs().black, 2);
 
-    // La victoire par capture doit être détectée
+    // Victory by capture must be detected
     ASSERT_EQ(board.status(), GameStatus::WinByCapture);
 
     TEST_PASSED();
 }
 
-// Test 5.10: Ordre complet - Illégalité détectée avant toute modification
+// Test 5.10: Complete order - Illegality detected before any modification
 TEST(illegality_detected_before_changes)
 {
     Board board;
     RuleSet rules;
     rules.forbidDoubleThree = true;
 
-    // Configuration double-trois: .XX à compléter en .XXX
+    // Double-three configuration: .XX to complete to .XXX
     test_utils::set_horizontal(board, ".XX", 5, 5);
     test_utils::set_vertical(board, ".XX", 8, 2);
 
-    // Sauvegarder hash
+    // Save hash
     uint64_t hashBefore = board.zobristKey();
 
     board.forceSide(Player::Black);
     Move illegal { Pos { 8, 5 }, Player::Black };
     PlayResult r = board.tryPlay(illegal, rules);
 
-    // Le coup doit être refusé
+    // The move must be rejected
     ASSERT_FALSE(r.success);
     ASSERT_EQ(r.code, PlayErrorCode::RuleViolation);
 
-    // Rien ne doit avoir changé
+    // Nothing should have changed
     ASSERT_EQ(board.zobristKey(), hashBefore);
     ASSERT_EQ(board.at(8, 5), Cell::Empty);
 
     TEST_PASSED();
 }
 
-// Test 5.11: Capture sur ligne non continue (bord) impossible
+// Test 5.11: Capture on non-continuous line (edge) impossible
 TEST(no_capture_across_board_edge)
 {
     Board board;
     RuleSet rules;
     rules.capturesEnabled = true;
 
-    // Configuration près du bord: position 17, 18 et on essaie de "capturer"
-    // mais la ligne n'est pas continue avec le bord
+    // Near the edge: positions 17, 18 and we try to "capture"
+    // but the line is not continuous with the edge
     test_utils::set_horizontal(board, "XOO", 16, 5);
 
-    // Reconstruisons: O O X au bord droit
+    // Rebuild: O O X at right edge
     Board board2;
     test_utils::set_horizontal(board2, "OOX", 16, 5);
 
     board2.forceSide(Player::Black);
-    // Black joue à gauche des O: X O O X (bord)
-    // Position 15 pour faire X O O X (18)
+    // Black plays at left of the O's: X O O X (edge)
+    // Position 15 to make X O O X (18)
     Move m2 { Pos { 15, 5 }, Player::Black };
     PlayResult r = board2.tryPlay(m2, rules);
     ASSERT_TRUE(r.success);
 
-    // Les pierres doivent être capturées (c'est valide si dans les limites)
+    // Stones must be captured (valid if within bounds)
     ASSERT_EQ(board2.at(16, 5), Cell::Empty);
     ASSERT_EQ(board2.at(17, 5), Cell::Empty);
 
@@ -324,7 +324,7 @@ TEST(no_capture_across_board_edge)
 }
 
 // ============================================================================
-// Point d'entrée des tests
+// Entry point for tests
 // ============================================================================
 
 void run_all_legality_tests()

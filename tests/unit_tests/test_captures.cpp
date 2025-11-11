@@ -1,4 +1,4 @@
-// Tests unitaires pour les captures
+// Unit tests for captures
 #include "../utils/BoardBuilder.hpp"
 #include "../utils/BoardPrinter.hpp"
 #include "gomoku/core/Board.hpp"
@@ -16,14 +16,14 @@ void run_all_capture_tests();
 // Tests 3) Captures
 // ============================================================================
 
-// Test 3.1: Capture horizontale - Motif X O O X
+// Test 3.1: Horizontal capture - Pattern X O O X
 TEST(capture_horizontal)
 {
     Board board;
     RuleSet rules;
     rules.capturesEnabled = true;
 
-    // Configuration: X O O . (Black peut capturer en jouant à droite)
+    // Configuration: X O O . (Black can capture by playing right)
     test_utils::set_horizontal(board, "XOO", 5, 5);
 
     board.forceSide(Player::Black);
@@ -31,25 +31,25 @@ TEST(capture_horizontal)
     PlayResult r = board.tryPlay(capture, rules);
     ASSERT_TRUE(r.success);
 
-    // Vérifier que les deux O ont été capturés
+    // Verify both O were captured
     ASSERT_EQ(board.at(6, 5), Cell::Empty);
     ASSERT_EQ(board.at(7, 5), Cell::Empty);
 
-    // Vérifier le compteur de captures pour Black
+    // Verify capture counter for Black
     ASSERT_EQ(board.capturedPairs().black, 1);
     ASSERT_EQ(board.capturedPairs().white, 0);
 
     TEST_PASSED();
 }
 
-// Test 3.2: Capture verticale - Motif X O O X
+// Test 3.2: Vertical capture - Motif X O O X
 TEST(capture_vertical)
 {
     Board board;
     RuleSet rules;
     rules.capturesEnabled = true;
 
-    // Configuration verticale: X O O . (Black peut capturer en jouant en bas)
+    // Vertical configuration: X O O . (Black can capture by playing down)
     test_utils::set_vertical(board, "XOO", 7, 3);
 
     board.forceSide(Player::Black);
@@ -57,7 +57,7 @@ TEST(capture_vertical)
     PlayResult r = board.tryPlay(capture, rules);
     ASSERT_TRUE(r.success);
 
-    // Vérifier que les deux O ont été capturés
+    // Verify both O were captured
     ASSERT_EQ(board.at(7, 4), Cell::Empty);
     ASSERT_EQ(board.at(7, 5), Cell::Empty);
 
@@ -67,14 +67,14 @@ TEST(capture_vertical)
     TEST_PASSED();
 }
 
-// Test 3.3: Capture diagonale descendante - Motif X O O X
+// Test 3.3: Descending diagonal capture - Motif X O O X
 TEST(capture_diagonal_desc)
 {
     Board board;
     RuleSet rules;
     rules.capturesEnabled = true;
 
-    // Configuration diagonale: X O O . (Black peut capturer)
+    // Diagonal configuration: X O O . (Black can capture)
     test_utils::set_diagonal_desc(board, "XOO", 5, 5);
 
     board.forceSide(Player::Black);
@@ -82,21 +82,21 @@ TEST(capture_diagonal_desc)
     PlayResult r = board.tryPlay(capture, rules);
     ASSERT_TRUE(r.success);
 
-    // Vérifier que les deux O ont été capturés
+    // Verify both O were captured
     ASSERT_EQ(board.at(6, 6), Cell::Empty);
     ASSERT_EQ(board.at(7, 7), Cell::Empty);
 
     TEST_PASSED();
 }
 
-// Test 3.4: Capture diagonale ascendante - Motif X O O X
+// Test 3.4: Ascending diagonal capture - Motif X O O X
 TEST(capture_diagonal_asc)
 {
     Board board;
     RuleSet rules;
     rules.capturesEnabled = true;
 
-    // Configuration diagonale ascendante: X O O . (Black peut capturer)
+    // Ascending diagonal configuration: X O O . (Black can capture)
     test_utils::set_diagonal_asc(board, "XOO", 5, 8);
 
     board.forceSide(Player::Black);
@@ -104,21 +104,21 @@ TEST(capture_diagonal_asc)
     PlayResult r = board.tryPlay(capture, rules);
     ASSERT_TRUE(r.success);
 
-    // Vérifier que les deux O ont été capturés
+    // Verify both O were captured
     ASSERT_EQ(board.at(6, 7), Cell::Empty);
     ASSERT_EQ(board.at(7, 6), Cell::Empty);
 
     TEST_PASSED();
 }
 
-// Test 3.5: Pas de capture d'une seule pierre - X O X ne capture rien
+// Test 3.5: No capture of single stone - X O X captures nothing
 TEST(no_capture_single_stone)
 {
     Board board;
     RuleSet rules;
     rules.capturesEnabled = true;
 
-    // Configuration: X O . (seulement 1 pierre entre deux X)
+    // Configuration: X O . (only 1 stone between two X)
     test_utils::set_horizontal(board, "XO", 5, 5);
 
     board.forceSide(Player::Black);
@@ -126,23 +126,23 @@ TEST(no_capture_single_stone)
     PlayResult r = board.tryPlay(m, rules);
     ASSERT_TRUE(r.success);
 
-    // La pierre O ne doit PAS être capturée
+    // The O stone should NOT be captured
     ASSERT_EQ(board.at(6, 5), Cell::White);
 
-    // Aucune capture
+    // No captures
     ASSERT_EQ(board.capturedPairs().black, 0);
 
     TEST_PASSED();
 }
 
-// Test 3.6: Pas de capture de 3 pierres ou plus - X O O O X ne capture rien
+// Test 3.6: No capture of three or more stones - X O O O X captures nothing
 TEST(no_capture_three_or_more)
 {
     Board board;
     RuleSet rules;
     rules.capturesEnabled = true;
 
-    // Configuration: X O O O . (3 pierres consécutives)
+    // Configuration: X O O O . (3 consecutive stones)
     test_utils::set_horizontal(board, "XOOO", 5, 5);
 
     board.forceSide(Player::Black);
@@ -150,61 +150,61 @@ TEST(no_capture_three_or_more)
     PlayResult r = board.tryPlay(m, rules);
     ASSERT_TRUE(r.success);
 
-    // Les 3 pierres O ne doivent PAS être capturées
+    // The 3 O stones should NOT be captured
     ASSERT_EQ(board.at(6, 5), Cell::White);
     ASSERT_EQ(board.at(7, 5), Cell::White);
     ASSERT_EQ(board.at(8, 5), Cell::White);
 
-    // Aucune capture
+    // No captures
     ASSERT_EQ(board.capturedPairs().black, 0);
 
     TEST_PASSED();
 }
 
-// Test 3.7: Captures multi-directions - Un coup peut capturer dans plusieurs directions
+// Test 3.7: Multi-directional captures - One move can capture in multiple directions
 TEST(multi_directional_capture)
 {
     Board board;
     RuleSet rules;
     rules.capturesEnabled = true;
 
-    // Configuration en croix:
+    // Configuration in a cross:
     //        X
     //        O
     //        O
-    //   X O O . O O X  (horizontale)
+    //   X O O . O O X  (horizontal)
     //        O
     //        O
     //        X
-    // Black joue au centre et capture horizontal + vertical = 2 paires
+    // Black plays in the center and captures horizontally + vertically = 2 pairs
 
-    test_utils::set_horizontal(board, "XOO", 5, 7); // Gauche
-    test_utils::set_horizontal(board, "OOX", 9, 7); // Droite (continuation)
-    test_utils::set_vertical(board, "XOO", 8, 4); // Haut
-    test_utils::set_vertical(board, "OOX", 8, 8); // Bas (continuation)
+    test_utils::set_horizontal(board, "XOO", 5, 7); // Left
+    test_utils::set_horizontal(board, "OOX", 9, 7); // Right (continuation)
+    test_utils::set_vertical(board, "XOO", 8, 4); // Top
+    test_utils::set_vertical(board, "OOX", 8, 8); // Bottom (continuation)
 
     board.forceSide(Player::Black);
-    Move capture { Pos { 8, 7 }, Player::Black }; // Centre de la croix
+    Move capture { Pos { 8, 7 }, Player::Black }; // Center of the cross
     PlayResult r = board.tryPlay(capture, rules);
     ASSERT_TRUE(r.success);
 
-    // Vérifier que les 4 pierres ont été capturées (2 paires)
-    ASSERT_EQ(board.at(6, 7), Cell::Empty); // Horizontal gauche
+    // Verify that all 4 stones were captured (2 pairs)
+    ASSERT_EQ(board.at(6, 7), Cell::Empty); // Horizontal left
     ASSERT_EQ(board.at(7, 7), Cell::Empty);
-    ASSERT_EQ(board.at(9, 7), Cell::Empty); // Horizontal droite
+    ASSERT_EQ(board.at(9, 7), Cell::Empty); // Horizontal right
     ASSERT_EQ(board.at(10, 7), Cell::Empty);
-    ASSERT_EQ(board.at(8, 5), Cell::Empty); // Vertical haut
+    ASSERT_EQ(board.at(8, 5), Cell::Empty); // Vertical top
     ASSERT_EQ(board.at(8, 6), Cell::Empty);
-    ASSERT_EQ(board.at(8, 8), Cell::Empty); // Vertical bas
+    ASSERT_EQ(board.at(8, 8), Cell::Empty); // Vertical bottom
     ASSERT_EQ(board.at(8, 9), Cell::Empty);
 
-    // 4 paires capturées
+    // 4 pairs captured
     ASSERT_EQ(board.capturedPairs().black, 4);
 
     TEST_PASSED();
 }
 
-// Test 3.8: Cases libérées après capture redeviennent jouables
+// Test 3.8: Cells freed after capture become playable again
 TEST(freed_positions_playable)
 {
     Board board;
@@ -220,11 +220,11 @@ TEST(freed_positions_playable)
     PlayResult r1 = board.tryPlay(capture, rules);
     ASSERT_TRUE(r1.success);
 
-    // Les positions (6,5) et (7,5) sont maintenant libres
+    // Positions (6,5) and (7,5) are now free
     ASSERT_EQ(board.at(6, 5), Cell::Empty);
     ASSERT_EQ(board.at(7, 5), Cell::Empty);
 
-    // White peut rejouer sur ces positions
+    // White can play on these positions again
     board.forceSide(Player::White);
     Move reuse1 { Pos { 6, 5 }, Player::White };
     PlayResult r2 = board.tryPlay(reuse1, rules);
@@ -244,7 +244,7 @@ TEST(freed_positions_playable)
     TEST_PASSED();
 }
 
-// Test 3.9: Compteur de captures correct pour les deux camps
+// Test 3.9: Correct capture counter for both sides
 TEST(capture_counter_both_sides)
 {
     Board board;
@@ -274,15 +274,15 @@ TEST(capture_counter_both_sides)
     TEST_PASSED();
 }
 
-// Test 3.10: Victoire par 5 paires capturées (10 pierres)
+// Test 3.10: Win by 5 captured pairs (10 stones)
 TEST(win_by_ten_captures)
 {
     Board board;
     RuleSet rules;
     rules.capturesEnabled = true;
-    rules.captureWinPairs = 5; // Victoire à 5 paires (10 pierres)
+    rules.captureWinPairs = 5; // Win by 5 pairs (10 stones)
 
-    // Black capture 5 paires de White (espacées pour éviter alignement)
+    // Black captures 5 pairs from White (spaced to avoid alignment)
     test_utils::set_horizontal(board, "XOO", 2, 2);
     board.forceSide(Player::Black);
     board.tryPlay(Move { Pos { 5, 2 }, Player::Black }, rules);
@@ -304,16 +304,16 @@ TEST(win_by_ten_captures)
     PlayResult r = board.tryPlay(Move { Pos { 10, 12 }, Player::Black }, rules);
     ASSERT_TRUE(r.success);
 
-    // Vérifier 5 paires capturées
+    // Verify 5 pairs captured
     ASSERT_EQ(board.capturedPairs().black, 5);
 
-    // Victoire par capture
+    // Win by capture
     ASSERT_EQ(board.status(), GameStatus::WinByCapture);
 
     TEST_PASSED();
 }
 
-// Test 3.11: Victoire par capture prioritaire sur alignement
+// Test 3.11: Win by capture priority over alignment
 TEST(capture_win_priority)
 {
     Board board;
@@ -321,7 +321,7 @@ TEST(capture_win_priority)
     rules.capturesEnabled = true;
     rules.captureWinPairs = 5;
 
-    // Black a déjà 4 paires capturées (espacées pour éviter alignement)
+    // Black has already captured 4 pairs (spaced to avoid alignment)
     test_utils::set_horizontal(board, "XOO", 2, 2);
     board.forceSide(Player::Black);
     board.tryPlay(Move { Pos { 5, 2 }, Player::Black }, rules);
@@ -340,27 +340,27 @@ TEST(capture_win_priority)
 
     ASSERT_EQ(board.capturedPairs().black, 4);
 
-    // Black fait un coup qui complète un alignement de 5 ET capture la 5ème paire
-    // Configuration: Black a déjà XXXX en diagonal
+    // Black makes a move that completes a 5-in-a-row AND captures the 5th pair
+    // Configuration: Black already has XXXX diagonally
     test_utils::set_diagonal_desc(board, "XXXX", 10, 10);
-    // Et peut capturer une dernière paire
+    // And can capture one last pair
     test_utils::set_horizontal(board, "XOO", 7, 12);
 
     board.forceSide(Player::Black);
 
-    // Black joue pour capturer la 5ème paire (atteint 10 captures)
-    // Ce coup complète aussi un alignement diagonal
+    // Black plays to capture 5th pair (reaches 10 captures)
+    // This move also completes a diagonal alignment
     PlayResult r = board.tryPlay(Move { Pos { 10, 12 }, Player::Black }, rules);
     ASSERT_TRUE(r.success);
 
-    // Victoire par capture (prioritaire sur alignement selon le code)
+    // Win by capture (priority over alignment according to the code)
     ASSERT_EQ(board.status(), GameStatus::WinByCapture);
 
     TEST_PASSED();
 }
 
 // ============================================================================
-// Point d'entrée des tests
+// Entry point for tests
 // ============================================================================
 
 void run_all_capture_tests()
