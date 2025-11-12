@@ -1,6 +1,6 @@
 #pragma once
-#include "gomoku/ai/SearchStats.hpp"
 #include "gomoku/ai/MoveOrderer.hpp"
+#include "gomoku/ai/SearchStats.hpp"
 #include "gomoku/ai/TranspositionTable.hpp"
 #include "gomoku/core/Types.hpp"
 #include <chrono>
@@ -14,14 +14,14 @@ class Board;
 
 struct SearchConfig {
     int timeBudgetMs = 500; // Budget temps (ms) pour la recherche
-    int maxDepthHint = 11; // Profondeur max d'itération
-    std::size_t ttBytes = (64ull << 20); // Taille allouée à la table de transposition
+    int maxDepthHint = 11; // Profondeur max d'itération - augmentée pour forcer l'efficacité
+    std::size_t ttBytes = (128ull << 20); // Taille TT : 128MB (doublée) pour meilleur hit rate
     unsigned long long nodeCap = 0; // Limite de nœuds dure (0 = désactivée)
 
     // Aspiration window parameters
     bool useAspirationWindows = true; // Enable/disable aspiration windows
-    int aspirationDelta = 600; // Initial window half-width around previous score (adjusted for new evaluator)
-    int aspirationWidenFactor = 8; // Factor to widen window on re-search (more aggressive)
+    int aspirationDelta = 400; // Fenêtre plus étroite pour forcer plus de re-recherches précises
+    int aspirationWidenFactor = 6; // Élargissement plus modéré
 };
 class MinimaxSearch {
 public:
@@ -80,8 +80,7 @@ private:
 
     SearchConfig cfg {};
     TranspositionTable tt;
-    MoveOrderer orderer_{MoveOrdererConfig{}};
-
+    MoveOrderer orderer_ { MoveOrdererConfig {} };
 };
 
 } // namespace gomoku

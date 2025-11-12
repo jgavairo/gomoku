@@ -162,10 +162,13 @@ namespace {
             cachedRingR = ringR;
             DIAMOND.clear();
             DIAMOND.reserve((2 * ringR + 1) * (2 * ringR + 1));
+            // Rectangle/Carré : distance de Chebyshev (max(|dx|, |dy|) <= ringR)
             for (int dy = -ringR; dy <= ringR; ++dy) {
-                int rem = ringR - std::abs(dy);
-                for (int dx = -rem; dx <= rem; ++dx)
+                for (int dx = -ringR; dx <= ringR; ++dx) {
+                    if (dx == 0 && dy == 0)
+                        continue; // Skip la position centrale
                     DIAMOND.emplace_back((int8_t)dx, (int8_t)dy);
+                }
             }
         }
         return DIAMOND;

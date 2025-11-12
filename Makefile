@@ -1,6 +1,6 @@
 # ================================ TARGETS =================================== #
 .PHONY: all build clean fclean re test debug release help check-deps
-.PHONY: install uninstall lib evaluate SFML check-deps-auto
+.PHONY: install uninstall lib evaluate test-ai-improvements test-ai-tactical test-candidate-visual SFML check-deps-auto
 .DEFAULT_GOAL := all
 
 # =============================== COMPILER ================================== #
@@ -47,10 +47,13 @@ BUILD_DIR = build
 OBJ_DIR = $(BUILD_DIR)/obj
 
 # Target names
-TARGET = bin/Gomoku                # GUI executable (SFML)
-LIB_NAME = lib/libgomoku_logic.a   # static library logic/AI
-TEST_BIN = bin/tests_runner        # unit test binary (without SFML)
-EVAL_BIN = bin/evaluate_runner     # AI evaluation binary (without SFML)
+TARGET = bin/Gomoku                      # GUI executable (SFML)
+LIB_NAME = lib/libgomoku_logic.a         # static library logic/AI
+TEST_BIN = bin/tests_runner              # unit test binary (without SFML)
+EVAL_BIN = bin/evaluate_runner           # AI evaluation binary (without SFML)
+AI_IMPROVEMENTS_BIN = bin/ai_improvements_runner  # AI improvements test binary
+AI_TACTICAL_BIN = bin/ai_tactical_runner # AI tactical tests binary (captures)
+CANDIDATE_VISUAL_BIN = bin/candidate_visual_runner # CandidateGenerator visual tests
 
 # ================================ SOURCES =================================== #
 CORE_SRC = \
@@ -97,14 +100,29 @@ EVAL_TEST_SRC = \
 	tests/evaluate_runner.cpp \
 	tests/evaluation/ai_performance.cpp
 
+AI_IMPROVEMENTS_TEST_SRC = \
+	tests/ai_improvements_runner.cpp \
+	tests/evaluation/ai_improvements.cpp
+
+AI_TACTICAL_TEST_SRC = \
+	tests/evaluation/ai_tactical_runner.cpp \
+	tests/evaluation/ai_tactical_tests.cpp
+
+CANDIDATE_VISUAL_TEST_SRC = \
+	tests/evaluation/candidate_visual_runner.cpp \
+	tests/evaluation/candidate_visual_tests.cpp
+
 # ================================ OBJECTS =================================== #
 CORE_OBJ = $(CORE_SRC:%.cpp=$(OBJ_DIR)/%.o)
 GUI_OBJ  = $(GUI_SRC:%.cpp=$(OBJ_DIR)/%.o)
 UNIT_TEST_OBJ = $(UNIT_TEST_SRC:%.cpp=$(OBJ_DIR)/%.o)
 EVAL_TEST_OBJ = $(EVAL_TEST_SRC:%.cpp=$(OBJ_DIR)/%.o)
+AI_IMPROVEMENTS_TEST_OBJ = $(AI_IMPROVEMENTS_TEST_SRC:%.cpp=$(OBJ_DIR)/%.o)
+AI_TACTICAL_TEST_OBJ = $(AI_TACTICAL_TEST_SRC:%.cpp=$(OBJ_DIR)/%.o)
+CANDIDATE_VISUAL_TEST_OBJ = $(CANDIDATE_VISUAL_TEST_SRC:%.cpp=$(OBJ_DIR)/%.o)
 
 # Generate dependency files (.d)
-DEPFILES := $(CORE_OBJ:%.o=%.d) $(GUI_OBJ:%.o=%.d) $(UNIT_TEST_OBJ:%.o=%.d) $(EVAL_TEST_OBJ:%.o=%.d)
+DEPFILES := $(CORE_OBJ:%.o=%.d) $(GUI_OBJ:%.o=%.d) $(UNIT_TEST_OBJ:%.o=%.d) $(EVAL_TEST_OBJ:%.o=%.d) $(AI_IMPROVEMENTS_TEST_OBJ:%.o=%.d)
 
 # ================================= COLORS =================================== #
 RESET = \033[0m
@@ -197,6 +215,24 @@ $(EVAL_BIN): $(EVAL_TEST_OBJ) $(LIB_NAME)
 	$(Q)$(CXX) $(EVAL_TEST_OBJ) $(LIB_NAME) -o $@
 	@printf "$(MSG_SUCCESS) Evaluator $(BOLD)$@$(RESET) compiled successfully!\n"
 
+$(AI_IMPROVEMENTS_BIN): $(AI_IMPROVEMENTS_TEST_OBJ) $(LIB_NAME)
+	@mkdir -p $(dir $@)
+	@printf "$(MSG_LINK) Linking AI improvements tests $(BOLD)$@$(RESET)...\n"
+	$(Q)$(CXX) $(AI_IMPROVEMENTS_TEST_OBJ) $(LIB_NAME) -o $@
+	@printf "$(MSG_SUCCESS) AI improvements tests $(BOLD)$@$(RESET) compiled successfully!\n"
+
+$(AI_TACTICAL_BIN): $(AI_TACTICAL_TEST_OBJ) $(LIB_NAME)
+	@mkdir -p $(dir $@)
+	@printf "$(MSG_LINK) Linking AI tactical tests $(BOLD)$@$(RESET)...\n"
+	$(Q)$(CXX) $(AI_TACTICAL_TEST_OBJ) $(LIB_NAME) -o $@
+	@printf "$(MSG_SUCCESS) AI tactical tests $(BOLD)$@$(RESET) compiled successfully!\n"
+
+$(CANDIDATE_VISUAL_BIN): $(CANDIDATE_VISUAL_TEST_OBJ) $(LIB_NAME)
+	@mkdir -p $(dir $@)
+	@printf "$(MSG_LINK) Linking CandidateGenerator visual tests $(BOLD)$@$(RESET)...\n"
+	$(Q)$(CXX) $(CANDIDATE_VISUAL_TEST_OBJ) $(LIB_NAME) -o $@
+	@printf "$(MSG_SUCCESS) CandidateGenerator visual tests $(BOLD)$@$(RESET) compiled successfully!\n"
+
 $(OBJ_DIR)/%.o: %.cpp
 	@mkdir -p $(dir $@)
 	@printf "$(MSG_COMPILE) $<\n"
@@ -223,6 +259,18 @@ evaluate: $(EVAL_BIN)
 	@printf "\n$(MSG_INFO) Running AI evaluation and performance analysis...\n"
 	@printf "$(MSG_INFO) Tip: Use '$(BOLD)make evaluate ARGS=\"-d\"$(RESET)' for detailed debug logs\n\n"
 	@./$(EVAL_BIN) $(ARGS)
+
+test-ai-improvements: $(AI_IMPROVEMENTS_BIN)
+	@printf "\n$(MSG_INFO) Running AI improvements tests...\n\n"
+	@./$(AI_IMPROVEMENTS_BIN)
+
+test-ai-tactical: $(AI_TACTICAL_BIN)
+	@printf "\n$(MSG_INFO) Running AI tactical tests (captures @ 500ms)...\n\n"
+	@./$(AI_TACTICAL_BIN)
+
+test-candidate-visual: $(CANDIDATE_VISUAL_BIN)
+	@printf "\n$(MSG_INFO) Running CandidateGenerator visual tests...\n\n"
+	@./$(CANDIDATE_VISUAL_BIN)
 
 # ========================== INSTALL/UNINSTALL ============================= #
 install: $(TARGET)

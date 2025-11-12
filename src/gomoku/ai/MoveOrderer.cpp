@@ -50,10 +50,9 @@ void MoveOrderer::onBetaCut(int ply, const Move& m)
 {
     ensureCapacity(ply + 1);
     pushKiller(ply, m);
-    // History boost modéré (tu peux pondérer par profondeur réelle).
-    // Attention: history peut overflow à long terme; clamp.
+    // History boost encore augmenté pour impact maximal
     int& h = history_[idxHistory(m.by, m.pos)];
-    h = std::min(h + 64, 1'000'000);
+    h = std::min(h + 256, 2'000'000); // augmenté de 128 à 256, max augmenté aussi
 }
 
 void MoveOrderer::onFailLow(int /*ply*/, const std::vector<Move>& /*tried*/)
@@ -147,9 +146,9 @@ std::vector<Move> MoveOrderer::order(Board& board,
             ? cfg_.winScore
             : eval::evaluate(board, board.toPlay()); // simple et lisible
 
-        // History bonus léger
+        // History bonus - diviseur réduit pour impact fort
         ensureCapacity(1); // s'assure que history_ existe
-        s += history_[idxHistory(m.by, m.pos)] / 8 + killerBonus;
+        s += history_[idxHistory(m.by, m.pos)] / 2 + killerBonus; // divisé par 2 au lieu de 4
 
         scored.push_back({ m, s, /*tie*/ 0 });
     }
