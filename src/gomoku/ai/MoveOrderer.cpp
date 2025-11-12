@@ -142,10 +142,14 @@ std::vector<Move> MoveOrderer::order(Board& board,
         if (!g.ok)
             continue;
 
-        int s = (board.status() == GameStatus::WinByAlign || board.status() == GameStatus::WinByCapture)
-            ? cfg_.winScore
-            : eval::evaluate(board, board.toPlay()); // simple et lisible
-
+        int s;
+        if (board.status() == GameStatus::WinByAlign || board.status() == GameStatus::WinByCapture) {
+            s = cfg_.winScore; // C'est un win pour toMove
+        } else {
+            // CORRECTION: evaluate() retourne un score du point de vue du joueur passé
+            // On veut le score de toMove, donc on passe toMove (pas board.toPlay() qui a changé!)
+            s = eval::evaluate(board, toMove);
+        }
         // History bonus - diviseur réduit pour impact fort
         ensureCapacity(1); // s'assure que history_ existe
         s += history_[idxHistory(m.by, m.pos)] / 2 + killerBonus; // divisé par 2 au lieu de 4
