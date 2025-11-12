@@ -1,6 +1,6 @@
 # ================================ TARGETS =================================== #
 .PHONY: all build clean fclean re test debug release help check-deps
-.PHONY: install uninstall lib evaluate test-ai-improvements test-ai-tactical test-candidate-visual SFML check-deps-auto
+.PHONY: install uninstall lib evaluate test-ai-improvements test-ai-tactical test-candidate-visual benchmark-candidates SFML check-deps-auto
 .DEFAULT_GOAL := all
 
 # =============================== COMPILER ================================== #
@@ -54,6 +54,7 @@ EVAL_BIN = bin/evaluate_runner           # AI evaluation binary (without SFML)
 AI_IMPROVEMENTS_BIN = bin/ai_improvements_runner  # AI improvements test binary
 AI_TACTICAL_BIN = bin/ai_tactical_runner # AI tactical tests binary (captures)
 CANDIDATE_VISUAL_BIN = bin/candidate_visual_runner # CandidateGenerator visual tests
+BENCHMARK_CANDIDATES_BIN = bin/benchmark_candidates # CandidateGenerator benchmark
 
 # ================================ SOURCES =================================== #
 CORE_SRC = \
@@ -112,6 +113,9 @@ CANDIDATE_VISUAL_TEST_SRC = \
 	tests/evaluation/candidate_visual_runner.cpp \
 	tests/evaluation/candidate_visual_tests.cpp
 
+BENCHMARK_CANDIDATES_SRC = \
+	tests/benchmark_candidates.cpp
+
 # ================================ OBJECTS =================================== #
 CORE_OBJ = $(CORE_SRC:%.cpp=$(OBJ_DIR)/%.o)
 GUI_OBJ  = $(GUI_SRC:%.cpp=$(OBJ_DIR)/%.o)
@@ -120,6 +124,7 @@ EVAL_TEST_OBJ = $(EVAL_TEST_SRC:%.cpp=$(OBJ_DIR)/%.o)
 AI_IMPROVEMENTS_TEST_OBJ = $(AI_IMPROVEMENTS_TEST_SRC:%.cpp=$(OBJ_DIR)/%.o)
 AI_TACTICAL_TEST_OBJ = $(AI_TACTICAL_TEST_SRC:%.cpp=$(OBJ_DIR)/%.o)
 CANDIDATE_VISUAL_TEST_OBJ = $(CANDIDATE_VISUAL_TEST_SRC:%.cpp=$(OBJ_DIR)/%.o)
+BENCHMARK_CANDIDATES_OBJ = $(BENCHMARK_CANDIDATES_SRC:%.cpp=$(OBJ_DIR)/%.o)
 
 # Generate dependency files (.d)
 DEPFILES := $(CORE_OBJ:%.o=%.d) $(GUI_OBJ:%.o=%.d) $(UNIT_TEST_OBJ:%.o=%.d) $(EVAL_TEST_OBJ:%.o=%.d) $(AI_IMPROVEMENTS_TEST_OBJ:%.o=%.d)
@@ -233,6 +238,12 @@ $(CANDIDATE_VISUAL_BIN): $(CANDIDATE_VISUAL_TEST_OBJ) $(LIB_NAME)
 	$(Q)$(CXX) $(CANDIDATE_VISUAL_TEST_OBJ) $(LIB_NAME) -o $@
 	@printf "$(MSG_SUCCESS) CandidateGenerator visual tests $(BOLD)$@$(RESET) compiled successfully!\n"
 
+$(BENCHMARK_CANDIDATES_BIN): $(BENCHMARK_CANDIDATES_OBJ) $(LIB_NAME)
+	@mkdir -p $(dir $@)
+	@printf "$(MSG_LINK) Linking CandidateGenerator benchmark $(BOLD)$@$(RESET)...\n"
+	$(Q)$(CXX) $(BENCHMARK_CANDIDATES_OBJ) $(LIB_NAME) -o $@
+	@printf "$(MSG_SUCCESS) CandidateGenerator benchmark $(BOLD)$@$(RESET) compiled successfully!\n"
+
 $(OBJ_DIR)/%.o: %.cpp
 	@mkdir -p $(dir $@)
 	@printf "$(MSG_COMPILE) $<\n"
@@ -271,6 +282,10 @@ test-ai-tactical: $(AI_TACTICAL_BIN)
 test-candidate-visual: $(CANDIDATE_VISUAL_BIN)
 	@printf "\n$(MSG_INFO) Running CandidateGenerator visual tests...\n\n"
 	@./$(CANDIDATE_VISUAL_BIN)
+
+benchmark-candidates: $(BENCHMARK_CANDIDATES_BIN)
+	@printf "\n$(MSG_INFO) Running CandidateGenerator benchmark...\n\n"
+	@./$(BENCHMARK_CANDIDATES_BIN)
 
 # ========================== INSTALL/UNINSTALL ============================= #
 install: $(TARGET)
