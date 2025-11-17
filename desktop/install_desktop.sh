@@ -72,12 +72,12 @@ USER_APPLICATIONS_DIR="$HOME/.local/share/applications"
 mkdir -p "$USER_APPLICATIONS_DIR"
 
 # Copier vers le répertoire des applications
-cp "$DESKTOP_FILE" "$USER_APPLICATIONS_DIR/"
+cp "$DESKTOP_FILE" "$USER_APPLICATIONS_DIR/" && installed_to_applications=1 || installed_to_applications=0
 printf "${MSG_INSTALL} Launcher installed to applications menu\n"
 
 # Copier vers le bureau si le répertoire existe
 if [ -d "$USER_DESKTOP_DIR" ]; then
-    cp "$DESKTOP_FILE" "$USER_DESKTOP_DIR/"
+    cp "$DESKTOP_FILE" "$USER_DESKTOP_DIR/" && installed_to_desktop=1 || installed_to_desktop=0
     chmod +x "$USER_DESKTOP_DIR/gomoku.desktop"
     printf "${MSG_INSTALL} Launcher added to desktop\n"
 fi
@@ -88,4 +88,11 @@ if command -v update-desktop-database >/dev/null 2>&1; then
     printf "${MSG_INFO} Application database updated\n"
 fi
 
-printf "${MSG_SUCCESS} Installation completed successfully\n"
+# Final summary: report where the launcher was installed
+installed_to_applications=${installed_to_applications:-0}
+installed_to_desktop=${installed_to_desktop:-0}
+if [ $installed_to_applications -eq 1 ] || [ $installed_to_desktop -eq 1 ]; then
+    printf "${MSG_SUCCESS} Installation completed successfully\n"
+else
+    printf "${MSG_INFO} Installation completed but nothing was installed to user locations.\n"
+fi

@@ -297,27 +297,50 @@ install: $(TARGET)
 	@printf "$(MSG_SUCCESS) Installation completed!\n"
 
 uninstall:
-	@printf "$(MSG_UNINSTALL) Removing Gomoku\n"
 	@cd desktop && ./uninstall_desktop.sh
-	@printf "$(MSG_UNINSTALL) Removing binary from ~/bin/\n"
 	@rm -f ~/bin/$(notdir $(TARGET))
-	@printf "$(MSG_SUCCESS) Uninstallation completed!\n"
 
 # =============================== CLEANING ================================== #
 clean:
-	@printf "$(MSG_CLEAN) Removing object files and logs...\n"
-	@rm -rf $(BUILD_DIR)
-	@rm -rf logs/
-	@printf "$(MSG_SUCCESS) Clean completed!\n"
+	@deleted=0; \
+	if [ -d "$(BUILD_DIR)" ]; then \
+		printf "$(MSG_CLEAN) Removing build directory $(BUILD_DIR)...\n"; \
+		rm -rf "$(BUILD_DIR)"; \
+		deleted=1; \
+	fi; \
+	if [ -d "logs/" ]; then \
+		printf "$(MSG_CLEAN) Removing logs directory logs/...\n"; \
+		rm -rf "logs/"; \
+		deleted=1; \
+	fi; \
+	if [ $$deleted -eq 1 ]; then \
+		printf "$(MSG_SUCCESS) Clean completed: removed files/directories.\n"; \
+	else \
+		printf "$(MSG_INFO) Clean completed: nothing to remove.\n"; \
+	fi
 
 fclean: uninstall clean
-	@printf "$(MSG_CLEAN) Removing executables and libraries...\n"
-	@rm -f $(TARGET) $(LIB_NAME) $(TEST_BIN) $(EVAL_BIN)
-	@if [ -f "$(HOME)/.config/gomoku/preferences.json" ]; then \
+	@deleted=0; \
+	if [ -d "bin/" ]; then \
+		printf "$(MSG_CLEAN) Removing binaries directory bin/...\n"; \
+		rm -rf "bin/"; \
+		deleted=1; \
+	fi; \
+	if [ -d "lib/" ]; then \
+		printf "$(MSG_CLEAN) Removing libraries directory lib/...\n"; \
+		rm -rf "lib/"; \
+		deleted=1; \
+	fi; \
+	if [ -d "$(HOME)/.config/gomoku" ]; then \
 		rm -rf "$(HOME)/.config/gomoku"; \
-		printf "$(MSG_CLEAN) Removed user config: $(HOME)/.config/gomoku/preferences.json\n"; \
+		printf "$(MSG_CLEAN) Removed user config: $(HOME)/.config/gomoku\n"; \
+		deleted=1; \
+	fi; \
+	if [ $$deleted -eq 1 ]; then \
+		printf "$(MSG_SUCCESS) Full clean completed: removed files/directories.\n"; \
+	else \
+		printf "$(MSG_INFO) Full clean completed: nothing to remove.\n"; \
 	fi
-	@printf "$(MSG_SUCCESS) Full clean completed!\n"
 
 re: fclean
 	@$(MAKE) all

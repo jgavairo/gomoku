@@ -25,28 +25,30 @@ USER_DESKTOP_DIR="$HOME/Desktop"
 USER_APPLICATIONS_DIR="$HOME/.local/share/applications"
 DESKTOP_FILE="gomoku.desktop"
 
-printf "${MSG_UNINSTALL} Removing desktop integration\n"
+# Flags to track what we removed
+removed_from_applications=0
+removed_from_desktop=0
 
 # Supprimer du menu des applications
 if [ -f "$USER_APPLICATIONS_DIR/$DESKTOP_FILE" ]; then
     rm "$USER_APPLICATIONS_DIR/$DESKTOP_FILE"
+    removed_from_applications=1
     printf "${MSG_SUCCESS} Launcher removed from applications menu\n"
-else
-    printf "${MSG_INFO} No launcher found in applications menu\n"
 fi
 
 # Supprimer du bureau
 if [ -f "$USER_DESKTOP_DIR/$DESKTOP_FILE" ]; then
     rm "$USER_DESKTOP_DIR/$DESKTOP_FILE"
+    removed_from_desktop=1
     printf "${MSG_SUCCESS} Launcher removed from desktop\n"
-else
-    printf "${MSG_INFO} No launcher found on desktop\n"
 fi
 
 # Mettre à jour la base de données des applications
 if command -v update-desktop-database >/dev/null 2>&1; then
     update-desktop-database "$USER_APPLICATIONS_DIR"
-    printf "${MSG_INFO} Application database updated\n"
 fi
 
-printf "${MSG_SUCCESS} Uninstallation completed\n"
+# Final summary
+if [ $removed_from_applications -eq 1 ] || [ $removed_from_desktop -eq 1 ]; then
+    printf "${MSG_SUCCESS} Uninstallation completed\n"
+fi
