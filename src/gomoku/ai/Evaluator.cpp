@@ -224,6 +224,18 @@ int evaluate(const Board& board, Player perspective) noexcept
             const bool leftOpen = isEmpty(board, prevX, prevY);
             const bool rightOpen = isEmpty(board, nx, ny);
 
+            // Check for split pattern (broken four/five)
+            int len2 = 0;
+            int nx2 = nx + dx;
+            int ny2 = ny + dy;
+            if (rightOpen) {
+                while (inside(nx2, ny2) && board.at(static_cast<uint8_t>(nx2), static_cast<uint8_t>(ny2)) == c) {
+                    ++len2;
+                    nx2 += dx;
+                    ny2 += dy;
+                }
+            }
+
             const int leftSpace = leftOpen ? countEmptyRay(board, prevX, prevY, -dx, -dy) : 0;
             const int rightSpace = rightOpen ? countEmptyRay(board, nx, ny, dx, dy) : 0;
 
@@ -240,6 +252,38 @@ int evaluate(const Board& board, Player perspective) noexcept
                 patternScore += val;
             else if (c == opp)
                 patternScore -= val;
+
+            // Score split patterns
+            if (len2 > 0) {
+                int splitTotal = len + len2;
+                int splitVal = 0;
+                int* threats = (c == me) ? myThreats : oppThreats;
+
+                if (splitTotal >= 4) {
+                    // Equivalent to a closed four (one winning spot in the gap)
+                    splitVal = 2500;
+                    threats[1]++; // closed_four
+                } else if (splitTotal == 3) {
+                    // Check if the far end is open
+                    bool rightOpen2 = inside(nx2, ny2) && isEmpty(board, nx2, ny2);
+                    int splitEnds = (leftOpen ? 1 : 0) + (rightOpen2 ? 1 : 0);
+
+                    if (splitEnds >= 2) {
+                        // Open broken three: . X X . X . -> becomes Open Four
+                        splitVal = 600;
+                        threats[2]++; // open_three
+                    } else {
+                        // Closed broken three
+                        splitVal = 150;
+                        threats[3]++; // closed_three
+                    }
+                }
+
+                if (c == me)
+                    patternScore += splitVal;
+                else if (c == opp)
+                    patternScore -= splitVal;
+            }
 
             // Check for capture patterns (X_OOX)
             if (c == me && hasCapturePattern(board, x, y, dx, dy, me, opp)) {
