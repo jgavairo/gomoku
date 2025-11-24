@@ -34,13 +34,13 @@ inline std::vector<std::pair<std::string, std::function<void()>>>& get_test_regi
     void test_##name()
 
 // Assertion macros
-#define ASSERT_TRUE(expr)                                                            \
-    do {                                                                             \
-        if (!(expr)) {                                                               \
+#define ASSERT_TRUE(expr)                                                           \
+    do {                                                                            \
+        if (!(expr)) {                                                              \
             std::cerr << "  x FAILED: " << #expr << " (line " << __LINE__ << ")\n"; \
-            test_framework::tests_failed++;                                          \
-            return;                                                                  \
-        }                                                                            \
+            test_framework::tests_failed++;                                         \
+            return;                                                                 \
+        }                                                                           \
     } while (0)
 
 #define ASSERT_FALSE(expr) ASSERT_TRUE(!(expr))

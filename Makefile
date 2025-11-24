@@ -1,6 +1,6 @@
 # ================================ TARGETS =================================== #
 .PHONY: all build clean fclean re test debug release help check-deps
-.PHONY: install uninstall lib evaluate test-ai-improvements test-ai-tactical test-candidate-visual benchmark-candidates SFML check-deps-auto
+.PHONY: install uninstall lib evaluate test-ai-improvements test-ai-tactical test-ai-advanced test-candidate-visual benchmark-candidates SFML check-deps-auto
 .DEFAULT_GOAL := all
 
 # =============================== COMPILER ================================== #
@@ -53,6 +53,7 @@ TEST_BIN = bin/tests_runner              # unit test binary (without SFML)
 EVAL_BIN = bin/evaluate_runner           # AI evaluation binary (without SFML)
 AI_IMPROVEMENTS_BIN = bin/ai_improvements_runner  # AI improvements test binary
 AI_TACTICAL_BIN = bin/ai_tactical_runner # AI tactical tests binary (captures)
+AI_ADVANCED_BIN = bin/ai_advanced_runner # AI advanced tests binary
 CANDIDATE_VISUAL_BIN = bin/candidate_visual_runner # CandidateGenerator visual tests
 BENCHMARK_CANDIDATES_BIN = bin/benchmark_candidates # CandidateGenerator benchmark
 
@@ -109,6 +110,10 @@ AI_TACTICAL_TEST_SRC = \
 	tests/evaluation/ai_tactical_runner.cpp \
 	tests/evaluation/ai_tactical_tests.cpp
 
+AI_ADVANCED_TEST_SRC = \
+	tests/evaluation/ai_advanced_runner.cpp \
+	tests/evaluation/ai_advanced_tests.cpp
+
 CANDIDATE_VISUAL_TEST_SRC = \
 	tests/evaluation/candidate_visual_runner.cpp \
 	tests/evaluation/candidate_visual_tests.cpp
@@ -123,6 +128,7 @@ UNIT_TEST_OBJ = $(UNIT_TEST_SRC:%.cpp=$(OBJ_DIR)/%.o)
 EVAL_TEST_OBJ = $(EVAL_TEST_SRC:%.cpp=$(OBJ_DIR)/%.o)
 AI_IMPROVEMENTS_TEST_OBJ = $(AI_IMPROVEMENTS_TEST_SRC:%.cpp=$(OBJ_DIR)/%.o)
 AI_TACTICAL_TEST_OBJ = $(AI_TACTICAL_TEST_SRC:%.cpp=$(OBJ_DIR)/%.o)
+AI_ADVANCED_TEST_OBJ = $(AI_ADVANCED_TEST_SRC:%.cpp=$(OBJ_DIR)/%.o)
 CANDIDATE_VISUAL_TEST_OBJ = $(CANDIDATE_VISUAL_TEST_SRC:%.cpp=$(OBJ_DIR)/%.o)
 BENCHMARK_CANDIDATES_OBJ = $(BENCHMARK_CANDIDATES_SRC:%.cpp=$(OBJ_DIR)/%.o)
 
@@ -232,6 +238,12 @@ $(AI_TACTICAL_BIN): $(AI_TACTICAL_TEST_OBJ) $(LIB_NAME)
 	$(Q)$(CXX) $(AI_TACTICAL_TEST_OBJ) $(LIB_NAME) -o $@
 	@printf "$(MSG_SUCCESS) AI tactical tests $(BOLD)$@$(RESET) compiled successfully!\n"
 
+$(AI_ADVANCED_BIN): $(AI_ADVANCED_TEST_OBJ) $(LIB_NAME)
+	@mkdir -p $(dir $@)
+	@printf "$(MSG_LINK) Linking AI advanced tests $(BOLD)$@$(RESET)...\n"
+	$(Q)$(CXX) $(AI_ADVANCED_TEST_OBJ) $(LIB_NAME) -o $@
+	@printf "$(MSG_SUCCESS) AI advanced tests $(BOLD)$@$(RESET) compiled successfully!\n"
+
 $(CANDIDATE_VISUAL_BIN): $(CANDIDATE_VISUAL_TEST_OBJ) $(LIB_NAME)
 	@mkdir -p $(dir $@)
 	@printf "$(MSG_LINK) Linking CandidateGenerator visual tests $(BOLD)$@$(RESET)...\n"
@@ -278,6 +290,10 @@ test-ai-improvements: $(AI_IMPROVEMENTS_BIN)
 test-ai-tactical: $(AI_TACTICAL_BIN)
 	@printf "\n$(MSG_INFO) Running AI tactical tests (captures @ 500ms)...\n\n"
 	@./$(AI_TACTICAL_BIN)
+
+test-ai-advanced: $(AI_ADVANCED_BIN)
+	@printf "\n$(MSG_INFO) Running AI advanced tests (cluttered board)...\n\n"
+	@./$(AI_ADVANCED_BIN)
 
 test-candidate-visual: $(CANDIDATE_VISUAL_BIN)
 	@printf "\n$(MSG_INFO) Running CandidateGenerator visual tests...\n\n"
