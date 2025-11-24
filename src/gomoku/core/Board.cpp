@@ -32,6 +32,8 @@ bool Board::isEmpty(uint8_t x, uint8_t y) const { return isInside(x, y) && state
 
 int Board::stoneCount(Player p) const { return (p == Player::Black) ? state.blackStones : state.whiteStones; }
 
+int Board::moveCount() const { return static_cast<int>(moveHistory.size()); }
+
 std::optional<Move> Board::lastMove() const
 {
     if (moveHistory.empty())

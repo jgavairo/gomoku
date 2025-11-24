@@ -16,6 +16,7 @@ struct GameSnapshot {
     Player toPlay; // Side to play
     std::pair<int, int> captures; // (black, white) captured pairs
     GameStatus status; // Game status
+    int moveCount; // Total moves played
 };
 
 enum class Controller {

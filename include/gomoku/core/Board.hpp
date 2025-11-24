@@ -35,6 +35,9 @@ public:
     // Stone count (tracked incrementally)
     int stoneCount(Player p) const;
 
+    // Total moves played
+    int moveCount() const override;
+
     // Last move played (if any)
     std::optional<Move> lastMove() const;
 

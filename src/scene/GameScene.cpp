@@ -76,11 +76,7 @@ void GameScene::onThemeChanged()
     if (!context_.resourceManager)
         return;
     // Rebind textures sur le renderer
-    const_cast<gomoku::gui::GameBoardRenderer&>(boardRenderer_).setTextures(
-        context_.resourceManager->getTexture("board"),
-        context_.resourceManager->getTexture("pawn1"),
-        context_.resourceManager->getTexture("pawn2"),
-        context_.resourceManager->getTexture("pawn_hint"));
+    const_cast<gomoku::gui::GameBoardRenderer&>(boardRenderer_).setTextures(context_.resourceManager->getTexture("board"), context_.resourceManager->getTexture("pawn1"), context_.resourceManager->getTexture("pawn2"), context_.resourceManager->getTexture("pawn_hint"));
     // Rebind texture helper si disponible
     if (context_.resourceManager->hasTexture("pawn_hint")) {
         helperSprite_.setTexture(context_.resourceManager->getTexture("pawn_hint"));
@@ -97,10 +93,10 @@ bool GameScene::handleInput(sf::Event& event)
 
     if (context_.window && hintButton_.handleInput(event, *context_.window))
         return true;
-    
+
     if (context_.window && undoButton_.handleInput(event, *context_.window))
         return true;
-    
+
     // Prévisualisation temporairement désactivée pour debug
 
     // Placement des pions sur clic souris
@@ -109,7 +105,7 @@ bool GameScene::handleInput(sf::Event& event)
         const float centerX = static_cast<float>(size.x) * 0.5f;
         const float centerY = static_cast<float>(size.y) * 0.5f;
         const float tileW = std::min(static_cast<float>(size.x) * 0.8f / 18.f,
-                                     static_cast<float>(size.y) * 0.8f * 2.f / 18.f);
+            static_cast<float>(size.y) * 0.8f * 2.f / 18.f);
         const float tileH = tileW * 0.5f;
         sf::Vector2f mp = context_.window->mapPixelToCoords(sf::Vector2i(event.mouseMove.x, event.mouseMove.y));
         const float X = mp.x - centerX;
@@ -281,13 +277,13 @@ void GameScene::render(sf::RenderTarget& target) const
         const float centerX = static_cast<float>(size.x) * 0.5f;
         const float centerY = static_cast<float>(size.y) * 0.5f;
         const float tileW = std::min(static_cast<float>(size.x) * 0.8f / 18.f,
-                                     static_cast<float>(size.y) * 0.8f * 2.f / 18.f);
+            static_cast<float>(size.y) * 0.8f * 2.f / 18.f);
         const float tileH = tileW * 0.5f;
-    
+
         const int i = hintPos_->x;
         const int j = hintPos_->y;
         const auto p = gomoku::gui::GameBoardRenderer::isoToScreen(i, j, tileW, tileH, centerX, centerY);
-    
+
         float pawnSize = tileW * 0.6f;
         float scale = pawnSize / static_cast<float>(helperSprite_.getTexture()->getSize().x);
         helperSprite_.setPosition({ p.x - pawnSize * 0.5f, p.y - pawnSize * 0.5f - 5.f });
@@ -305,7 +301,7 @@ void GameScene::render(sf::RenderTarget& target) const
         const float centerX = static_cast<float>(size.x) * 0.5f;
         const float centerY = static_cast<float>(size.y) * 0.5f;
         const float tileW = std::min(static_cast<float>(size.x) * 0.8f / 18.f,
-                                     static_cast<float>(size.y) * 0.8f * 2.f / 18.f);
+            static_cast<float>(size.y) * 0.8f * 2.f / 18.f);
         const float tileH = tileW * 0.5f;
         const int i = hoverPos_->x;
         const int j = hoverPos_->y;
@@ -316,7 +312,8 @@ void GameScene::render(sf::RenderTarget& target) const
         hov.setPosition({ p.x - pawnSize * 0.5f, p.y - pawnSize * 0.5f - 5.f });
         hov.setScale(scale, scale);
         auto old = hov.getColor();
-        sf::Color c = old; c.a = 110; // léger transparent
+        sf::Color c = old;
+        c.a = 110; // léger transparent
         hov.setColor(c);
         target.draw(hov);
         hov.setColor(old);
@@ -330,9 +327,10 @@ void GameScene::render(sf::RenderTarget& target) const
     if (fontOk_) {
         char buf[128];
         auto caps = snap.captures;
-        std::snprintf(buf, sizeof(buf), "To play: %s   Captures ●:%d ○:%d%s%s%s",
+        std::snprintf(buf, sizeof(buf), "To play: %s   Captures ●:%d ○:%d   Moves: %d%s%s%s",
             (snap.toPlay == gomoku::Player::Black ? "● Black" : "○ White"),
             caps.first, caps.second,
+            snap.moveCount,
             (lastAiMs_ >= 0 ? "   |  AI:" : ""),
             (lastAiMs_ >= 0 ? " ms" : ""),
             "");
@@ -383,15 +381,12 @@ void GameScene::render(sf::RenderTarget& target) const
 
 void GameScene::onUndoClicked()
 {
-    if (vsAi_)
-    {
+    if (vsAi_) {
         std::cout << "Undo clicked" << std::endl;
         gameSession_.undo(2);
         hintEnabled_ = false;
         hintPos_.reset();
-    }
-    else if (!vsAi_)
-    {
+    } else if (!vsAi_) {
         std::cout << "Undo clicked" << std::endl;
         gameSession_.undo(1);
         hintEnabled_ = false;
@@ -416,13 +411,12 @@ void GameScene::onHintClicked()
     }
 
     auto result = gameSession_.hint(500);
-    if(!result.mv)
+    if (!result.mv)
         return;
     std::cout << "Hint: " << result.mv->pos << std::endl;
     hintPos_ = result.mv->pos;
     hintEnabled_ = true;
-    if (result.stats) 
-    {
+    if (result.stats) {
         std::cout << "  Depth: " << result.stats->depthReached
                   << ", Nodes: " << result.stats->nodes
                   << ", TT hits: " << result.stats->ttHits << std::endl;

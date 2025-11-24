@@ -22,7 +22,8 @@ GameSnapshot SessionController::snapshot() const
         .lastMove = last_,
         .toPlay = b.toPlay(),
         .captures = { captures.black, captures.white },
-        .status = b.status()
+        .status = b.status(),
+        .moveCount = b.moveCount()
     };
 }
 
