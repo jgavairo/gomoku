@@ -1,4 +1,4 @@
-// Tests tactiques de l'IA : focus sur les captures
+// Tests tactiques de l'IA : focus sur les captures et les priorités
 #include "../framework/test_framework.hpp"
 #include "../utils/BoardBuilder.hpp"
 #include "../utils/BoardPrinter.hpp"
@@ -16,11 +16,15 @@ using namespace gomoku::ai;
 
 // ANSI color codes
 #define RED "\033[31m"
+#define GREEN "\033[32m"
+#define YELLOW "\033[33m"
 #define RESET "\033[0m"
 
-// Helper pour afficher le board avec le coup en rouge
-static void print_board_with_move(const Board& board, const Position& move_pos)
+// Helper pour afficher le board avec le coup en surbrillance
+static void print_board_with_move(const Board& board, const Move& move, const std::string& title)
 {
+    std::cout << "\n"
+              << YELLOW << "=== " << title << " ===" << RESET << std::endl;
     std::cout << "    ";
     for (int x = 0; x < 19; x++) {
         std::cout << std::setw(2) << x << " ";
@@ -32,22 +36,16 @@ static void print_board_with_move(const Board& board, const Position& move_pos)
 
         for (int x = 0; x < 19; x++) {
             Cell c = board.at(static_cast<uint8_t>(x), static_cast<uint8_t>(y));
-            char ch = '.';
-            if (c == Cell::Black) {
-                ch = 'X';
-            } else if (c == Cell::White) {
-                ch = 'O';
-            }
 
-            // Highlight the move in red
-            if (x == move_pos.x && y == move_pos.y) {
-                std::cout << RED << ch << RESET;
+            if (x == move.pos.x && y == move.pos.y) {
+                std::cout << RED << (move.by == Player::Black ? "X " : "O ") << RESET;
             } else {
-                std::cout << ch;
-            }
-
-            if (x < 18) {
-                std::cout << "  ";
+                if (c == Cell::Black)
+                    std::cout << "X ";
+                else if (c == Cell::White)
+                    std::cout << "O ";
+                else
+                    std::cout << ". ";
             }
         }
         std::cout << "\n";
@@ -55,528 +53,419 @@ static void print_board_with_move(const Board& board, const Position& move_pos)
     std::cout << std::endl;
 }
 
-// Helper pour afficher les stats
-static void printSearchStats(const SearchStats& stats, const std::string& context)
+static void printSearchStats(const SearchStats& stats)
 {
-    std::cout << "\n  [" << context << "]" << std::endl;
-    std::cout << "    Depth:     " << stats.depthReached << std::endl;
-    std::cout << "    Nodes:     " << stats.nodes << std::endl;
-    std::cout << "    TT hits:   " << stats.ttHits << " ("
-              << (stats.nodes > 0 ? (stats.ttHits * 100 / stats.nodes) : 0) << "%)" << std::endl;
-    std::cout << "    Time:      " << stats.timeMs << "ms" << std::endl;
+    std::cout << "  Stats: Depth=" << stats.depthReached
+              << " Nodes=" << stats.nodes
+              << " Time=" << stats.timeMs << "ms" << std::endl;
 }
 
-// Test 1: Capture immédiate simple (OXX_ -> capturer en _)
-TEST(ai_captures_immediate_simple)
+// Test 1: Capture simple (Blanc capture Noir)
+TEST(ai_tactical_simple_capture)
 {
-    std::cout << "\n=== Test: Capture immédiate simple ===" << std::endl;
-
     Board board;
     RuleSet rules;
 
-    // Blanc a OXX à capturer
-    // Position: O en (8,9), X en (9,9), X en (10,9), _ en (11,9)
-    board.tryPlay(Move { { 9, 9 }, Player::Black }, rules); // X
-    board.tryPlay(Move { { 8, 9 }, Player::White }, rules); // O
-    board.tryPlay(Move { { 10, 9 }, Player::Black }, rules); // X
-
-    std::cout << "\n  Position (Blanc peut capturer 2 pions noirs):" << std::endl;
-    test_utils::print_board(board);
+    // Setup: O X X _
+    // Blanc (8,9), Noir (9,9), Noir (10,9)
+    // C'est à Blanc de jouer
+    test_utils::set_board(board, "O X X", 8, 9);
+    board.forceSide(Player::White);
 
     MinimaxSearchEngine engine;
     SearchStats stats;
     auto move = engine.findBestMove(board, rules, &stats);
 
     ASSERT_TRUE(move.has_value());
-    printSearchStats(stats, "Capture immédiate");
+    print_board_with_move(board, *move, "Capture Simple (Blanc joue)");
+    printSearchStats(stats);
 
-    std::cout << "\n  Position après le coup de l'IA (en " << RED << "rouge" << RESET << "):" << std::endl;
-    Board board_copy = board;
-    board_copy.tryPlay(*move, rules);
-    print_board_with_move(board_copy, move->pos);
-
-    std::cout << "  Move choisi: (" << (int)move->pos.x << ", " << (int)move->pos.y << ")" << std::endl;
-    std::cout << "  Attendu: (11, 9) [capture OXX_]" << std::endl;
-    ASSERT_TRUE(move->pos.x == 11 && move->pos.y == 9);
-
+    // Blanc doit jouer en (11,9) pour capturer
+    ASSERT_EQ(move->pos.x, 11);
+    ASSERT_EQ(move->pos.y, 9);
     TEST_PASSED();
 }
 
-// Test 2: Éviter d'être capturé (_XXO -> ne pas jouer en _)
-TEST(ai_avoids_being_captured)
+// Test 2: Défense contre capture (Noir défend)
+TEST(ai_tactical_defend_capture)
 {
-    std::cout << "\n=== Test: Éviter d'être capturé ===" << std::endl;
-
     Board board;
     RuleSet rules;
 
-    // Noir ne doit PAS jouer en (7,9) sinon Blanc capture
-    // Position: X en (8,9), X en (9,9), O en (10,9)
-    board.tryPlay(Move { { 8, 9 }, Player::Black }, rules); // X
-    board.tryPlay(Move { { 10, 9 }, Player::White }, rules); // O
-    board.tryPlay(Move { { 9, 9 }, Player::Black }, rules); // X
-
-    std::cout << "\n  Position (Noir ne doit PAS jouer en (7,9)):" << std::endl;
-    test_utils::print_board(board);
+    // Setup: O X X _
+    // Blanc (8,9), Noir (9,9), Noir (10,9)
+    // Menace créée par Blanc (5,5)
+    test_utils::set_board(board, "O X X", 8, 9);
+    board.setStone({ 5, 5 }, Cell::White);
+    board.forceSide(Player::Black);
 
     MinimaxSearchEngine engine;
     SearchStats stats;
     auto move = engine.findBestMove(board, rules, &stats);
 
     ASSERT_TRUE(move.has_value());
-    printSearchStats(stats, "Éviter capture");
+    print_board_with_move(board, *move, "Défense Capture (Noir joue)");
+    printSearchStats(stats);
 
-    std::cout << "\n  Position après le coup de l'IA (en " << RED << "rouge" << RESET << "):" << std::endl;
-    Board board_copy = board;
-    board_copy.tryPlay(*move, rules);
-    print_board_with_move(board_copy, move->pos);
-
-    std::cout << "  Move choisi: (" << (int)move->pos.x << ", " << (int)move->pos.y << ")" << std::endl;
-    std::cout << "  Ne doit PAS être: (7, 9)" << std::endl;
-    ASSERT_FALSE(move->pos.x == 7 && move->pos.y == 9);
-
+    // Noir doit jouer en (11,9) pour bloquer la capture (ou étendre)
+    // (7,9) ne marche pas car c'est de l'autre côté du O
+    ASSERT_EQ(move->pos.x, 11);
+    ASSERT_EQ(move->pos.y, 9);
     TEST_PASSED();
 }
 
-// Test 3: Double capture (deux paires capturables)
-TEST(ai_double_capture_opportunity)
+// Test 3: Double capture (Blanc capture 2 paires en un coup)
+TEST(ai_tactical_double_capture)
 {
-    std::cout << "\n=== Test: Opportunité de double capture ===" << std::endl;
-
     Board board;
     RuleSet rules;
 
-    // Blanc peut capturer sur deux axes depuis (10,10)
-    // Horizontal: O en (8,10), X en (9,10), X en (10,10) -> capturer en (11,10)
-    // Vertical: O en (10,8), X en (10,9), X en (10,10) -> capturer en (10,11)
-    board.tryPlay(Move { { 9, 10 }, Player::Black }, rules); // X
-    board.tryPlay(Move { { 8, 10 }, Player::White }, rules); // O
-    board.tryPlay(Move { { 10, 9 }, Player::Black }, rules); // X
-    board.tryPlay(Move { { 10, 8 }, Player::White }, rules); // O
-    board.tryPlay(Move { { 10, 10 }, Player::Black }, rules); // X
+    // Setup pour une VRAIE double capture (un coup capture 4 pions)
+    // On veut jouer en (10, 10) pour capturer verticalement et horizontalement.
+    // Vertical:   O(10,7) X(10,8) X(10,9) _(10,10)
+    // Horizontal: O(7,10) X(8,10) X(9,10) _(10,10)
 
-    std::cout << "\n  Position (Blanc peut capturer sur 2 axes):" << std::endl;
-    test_utils::print_board(board);
+    test_utils::set_board(board, R"(
+      . . . O
+      . . . X
+      . . . X
+    O X X .
+    )",
+        7, 7);
+
+    board.forceSide(Player::White);
 
     MinimaxSearchEngine engine;
     SearchStats stats;
     auto move = engine.findBestMove(board, rules, &stats);
 
     ASSERT_TRUE(move.has_value());
-    printSearchStats(stats, "Double capture");
+    print_board_with_move(board, *move, "Double Capture (2 paires)");
+    printSearchStats(stats);
 
-    std::cout << "\n  Position après le coup de l'IA (en " << RED << "rouge" << RESET << "):" << std::endl;
-    Board board_copy = board;
-    board_copy.tryPlay(*move, rules);
-    print_board_with_move(board_copy, move->pos);
-
-    std::cout << "  Move choisi: (" << (int)move->pos.x << ", " << (int)move->pos.y << ")" << std::endl;
-    std::cout << "  Attendu: (11, 10) ou (10, 11) [capture une paire]" << std::endl;
-    ASSERT_TRUE((move->pos.x == 11 && move->pos.y == 10) || (move->pos.x == 10 && move->pos.y == 11));
-
+    // Le coup en (10, 10) doit être choisi car il rapporte 2 captures (valeur énorme)
+    ASSERT_EQ(move->pos.x, 10);
+    ASSERT_EQ(move->pos.y, 10);
     TEST_PASSED();
 }
 
-// Test 4: Capture vs alignement (arbitrage)
-TEST(ai_capture_vs_alignment)
+// Test 4: Victoire par capture (5ème paire)
+TEST(ai_tactical_win_by_capture)
 {
-    std::cout << "\n=== Test: Arbitrage capture vs alignement ===" << std::endl;
-
     Board board;
     RuleSet rules;
 
-    // Blanc a le choix entre:
-    // 1) Capturer OXX_ en (11,9)
-    // 2) Faire un trois ouvert en (9,8)
-    board.tryPlay(Move { { 9, 9 }, Player::Black }, rules); // X
-    board.tryPlay(Move { { 8, 9 }, Player::White }, rules); // O pour setup capture
-    board.tryPlay(Move { { 10, 9 }, Player::Black }, rules); // X
-    board.tryPlay(Move { { 9, 10 }, Player::White }, rules); // O
-    board.tryPlay(Move { { 5, 5 }, Player::Black }, rules); // X ailleurs
-    board.tryPlay(Move { { 9, 11 }, Player::White }, rules); // O setup trois
+    // On donne 4 paires capturées à Noir
+    // On setup une 5ème opportunité
 
-    std::cout << "\n  Position (capture disponible vs alignement):" << std::endl;
-    test_utils::print_board(board);
+    board.forceSide(Player::White);
 
-    MinimaxSearchEngine engine;
-    SearchStats stats;
-    auto move = engine.findBestMove(board, rules, &stats);
+    // 1
+    board.tryPlay(Move { { 1, 1 }, Player::White }, rules);
+    board.tryPlay(Move { { 0, 0 }, Player::Black }, rules);
+    board.tryPlay(Move { { 2, 2 }, Player::White }, rules);
+    board.tryPlay(Move { { 3, 3 }, Player::Black }, rules); // Capture W en (1,1),(2,2)
 
-    ASSERT_TRUE(move.has_value());
-    printSearchStats(stats, "Capture vs alignement");
+    // 2
+    board.tryPlay(Move { { 1, 4 }, Player::White }, rules);
+    board.tryPlay(Move { { 0, 3 }, Player::Black }, rules);
+    board.tryPlay(Move { { 2, 5 }, Player::White }, rules);
+    board.tryPlay(Move { { 3, 6 }, Player::Black }, rules); // Capture
 
-    std::cout << "\n  Position après le coup de l'IA (en " << RED << "rouge" << RESET << "):" << std::endl;
-    Board board_copy = board;
-    board_copy.tryPlay(*move, rules);
-    print_board_with_move(board_copy, move->pos);
+    // 3
+    board.tryPlay(Move { { 1, 7 }, Player::White }, rules);
+    board.tryPlay(Move { { 0, 6 }, Player::Black }, rules);
+    board.tryPlay(Move { { 2, 8 }, Player::White }, rules);
+    board.tryPlay(Move { { 3, 9 }, Player::Black }, rules); // Capture
 
-    std::cout << "  Move choisi: (" << (int)move->pos.x << ", " << (int)move->pos.y << ")" << std::endl;
-    // On vérifie juste que l'IA choisit un coup raisonnable
-    ASSERT_TRUE(move.has_value());
+    // 4
+    board.tryPlay(Move { { 1, 10 }, Player::White }, rules);
+    board.tryPlay(Move { { 0, 9 }, Player::Black }, rules);
+    board.tryPlay(Move { { 2, 11 }, Player::White }, rules);
+    board.tryPlay(Move { { 3, 12 }, Player::Black }, rules); // Capture
 
-    TEST_PASSED();
-}
-
-// Test 5: Menace de capture (forcer l'adversaire)
-TEST(ai_capture_threat)
-{
-    std::cout << "\n=== Test: Créer une menace de capture ===" << std::endl;
-
-    Board board;
-    RuleSet rules;
-
-    // Noir crée une position où il menace de capturer au prochain coup
-    // O en (8,9), X en (9,9), _ en (10,9), _ en (11,9)
-    // Si Noir joue en (10,9), il menace de capturer en jouant (7,9) ensuite
-    board.tryPlay(Move { { 9, 9 }, Player::Black }, rules); // X
-    board.tryPlay(Move { { 8, 9 }, Player::White }, rules); // O
-    board.tryPlay(Move { { 5, 5 }, Player::Black }, rules); // X ailleurs
-
-    std::cout << "\n  Position (Blanc vient de jouer, Noir peut menacer):" << std::endl;
-    test_utils::print_board(board);
-
-    MinimaxSearchEngine engine;
-    SearchStats stats;
-    auto move = engine.findBestMove(board, rules, &stats);
-
-    ASSERT_TRUE(move.has_value());
-    printSearchStats(stats, "Menace de capture");
-
-    std::cout << "\n  Position après le coup de l'IA (en " << RED << "rouge" << RESET << "):" << std::endl;
-    Board board_copy = board;
-    board_copy.tryPlay(*move, rules);
-    print_board_with_move(board_copy, move->pos);
-
-    std::cout << "  Move choisi: (" << (int)move->pos.x << ", " << (int)move->pos.y << ")" << std::endl;
-    // L'IA devrait considérer (10,9) comme un bon coup (menace capture)
-
-    TEST_PASSED();
-}
-
-// Test 6: Défense contre capture imminente
-TEST(ai_defends_against_capture)
-{
-    std::cout << "\n=== Test: Défense contre capture imminente ===" << std::endl;
-
-    Board board;
-    RuleSet rules;
-
-    // Blanc a OXX, Noir doit défendre ou s'échapper
-    // O en (8,9), X en (9,9), X en (10,9)
-    // Noir au trait, ne doit pas laisser Blanc capturer facilement
-    board.tryPlay(Move { { 9, 9 }, Player::Black }, rules); // X
-    board.tryPlay(Move { { 8, 9 }, Player::White }, rules); // O
-    board.tryPlay(Move { { 10, 9 }, Player::Black }, rules); // X
-    board.tryPlay(Move { { 5, 5 }, Player::White }, rules); // O ailleurs
-
-    std::cout << "\n  Position (Noir doit gérer la menace OXX_):" << std::endl;
-    test_utils::print_board(board);
-
-    MinimaxSearchEngine engine;
-    SearchStats stats;
-    auto move = engine.findBestMove(board, rules, &stats);
-
-    ASSERT_TRUE(move.has_value());
-    printSearchStats(stats, "Défense capture");
-
-    std::cout << "\n  Position après le coup de l'IA (en " << RED << "rouge" << RESET << "):" << std::endl;
-    Board board_copy = board;
-    board_copy.tryPlay(*move, rules);
-    print_board_with_move(board_copy, move->pos);
-
-    std::cout << "  Move choisi: (" << (int)move->pos.x << ", " << (int)move->pos.y << ")" << std::endl;
-
-    TEST_PASSED();
-}
-
-// Test 7: Capture en diagonale
-TEST(ai_diagonal_capture)
-{
-    std::cout << "\n=== Test: Capture en diagonale ===" << std::endl;
-
-    Board board;
-    RuleSet rules;
-
-    // Blanc peut capturer en diagonale
-    // O en (8,8), X en (9,9), X en (10,10), _ en (11,11)
-    board.tryPlay(Move { { 9, 9 }, Player::Black }, rules); // X
-    board.tryPlay(Move { { 8, 8 }, Player::White }, rules); // O
-    board.tryPlay(Move { { 10, 10 }, Player::Black }, rules); // X
-
-    std::cout << "\n  Position (capture diagonale disponible):" << std::endl;
-    test_utils::print_board(board);
-
-    MinimaxSearchEngine engine;
-    SearchStats stats;
-    auto move = engine.findBestMove(board, rules, &stats);
-
-    ASSERT_TRUE(move.has_value());
-    printSearchStats(stats, "Capture diagonale");
-
-    std::cout << "\n  Position après le coup de l'IA (en " << RED << "rouge" << RESET << "):" << std::endl;
-    Board board_copy = board;
-    board_copy.tryPlay(*move, rules);
-    print_board_with_move(board_copy, move->pos);
-
-    std::cout << "  Move choisi: (" << (int)move->pos.x << ", " << (int)move->pos.y << ")" << std::endl;
-    std::cout << "  Attendu: (11, 11) [capture diagonale]" << std::endl;
-    ASSERT_TRUE(move->pos.x == 11 && move->pos.y == 11);
-
-    TEST_PASSED();
-}
-
-// Test 8: Multiple captures disponibles (choisir la meilleure)
-TEST(ai_multiple_captures_choice)
-{
-    std::cout << "\n=== Test: Choix entre plusieurs captures ===" << std::endl;
-
-    Board board;
-    RuleSet rules;
-
-    // Blanc peut capturer à 3 endroits différents
-    // Capture 1: O(6,9) X(7,9) X(8,9) _(9,9)
-    // Capture 2: O(9,6) X(9,7) X(9,8) _(9,9)
-    // Capture 3: O(12,9) X(11,9) X(10,9) _(9,9)
-    board.tryPlay(Move { { 7, 9 }, Player::Black }, rules); // X
-    board.tryPlay(Move { { 6, 9 }, Player::White }, rules); // O
-    board.tryPlay(Move { { 8, 9 }, Player::Black }, rules); // X
-    board.tryPlay(Move { { 9, 6 }, Player::White }, rules); // O
-    board.tryPlay(Move { { 9, 7 }, Player::Black }, rules); // X
-    board.tryPlay(Move { { 12, 9 }, Player::White }, rules); // O
-    board.tryPlay(Move { { 9, 8 }, Player::Black }, rules); // X
-    board.tryPlay(Move { { 5, 5 }, Player::White }, rules); // O ailleurs
-    board.tryPlay(Move { { 11, 9 }, Player::Black }, rules); // X
-    board.tryPlay(Move { { 6, 6 }, Player::White }, rules); // O ailleurs
-    board.tryPlay(Move { { 10, 9 }, Player::Black }, rules); // X
-
-    std::cout << "\n  Position (3 captures possibles convergent vers (9,9)):" << std::endl;
-    test_utils::print_board(board);
-
-    MinimaxSearchEngine engine;
-    SearchStats stats;
-    auto move = engine.findBestMove(board, rules, &stats);
-
-    ASSERT_TRUE(move.has_value());
-    printSearchStats(stats, "Choix multiple captures");
-
-    std::cout << "\n  Position après le coup de l'IA (en " << RED << "rouge" << RESET << "):" << std::endl;
-    Board board_copy = board;
-    board_copy.tryPlay(*move, rules);
-    print_board_with_move(board_copy, move->pos);
-
-    std::cout << "  Move choisi: (" << (int)move->pos.x << ", " << (int)move->pos.y << ")" << std::endl;
-    std::cout << "  Attendu: (9, 9) [capture centrale]" << std::endl;
-    ASSERT_TRUE(move->pos.x == 9 && move->pos.y == 9);
-
-    TEST_PASSED();
-}
-
-// Test 9: Capture forcée (5 paires pour gagner)
-TEST(ai_winning_capture)
-{
-    std::cout << "\n=== Test: Capture pour gagner (5ème paire) ===" << std::endl;
-
-    Board board;
-    RuleSet rules;
-
-    // Blanc a déjà 4 paires capturées, peut gagner en capturant une 5ème
-    // On simule cela en jouant plusieurs captures
-
-    // Première capture
-    board.tryPlay(Move { { 9, 9 }, Player::Black }, rules);
-    board.tryPlay(Move { { 8, 9 }, Player::White }, rules);
-    board.tryPlay(Move { { 10, 9 }, Player::Black }, rules);
-    board.tryPlay(Move { { 11, 9 }, Player::White }, rules); // Capture!
-
-    // Deuxième capture
-    board.tryPlay(Move { { 9, 10 }, Player::Black }, rules);
-    board.tryPlay(Move { { 8, 10 }, Player::White }, rules);
+    // Setup 5ème: B(10,10) W(11,10) W(12,10) _(13,10)
+    board.tryPlay(Move { { 11, 10 }, Player::White }, rules);
     board.tryPlay(Move { { 10, 10 }, Player::Black }, rules);
-    board.tryPlay(Move { { 11, 10 }, Player::White }, rules); // Capture!
+    board.tryPlay(Move { { 12, 10 }, Player::White }, rules);
 
-    // Troisième capture
-    board.tryPlay(Move { { 9, 11 }, Player::Black }, rules);
-    board.tryPlay(Move { { 8, 11 }, Player::White }, rules);
-    board.tryPlay(Move { { 10, 11 }, Player::Black }, rules);
-    board.tryPlay(Move { { 11, 11 }, Player::White }, rules); // Capture!
-
-    // Quatrième capture
-    board.tryPlay(Move { { 9, 12 }, Player::Black }, rules);
-    board.tryPlay(Move { { 8, 12 }, Player::White }, rules);
-    board.tryPlay(Move { { 10, 12 }, Player::Black }, rules);
-    board.tryPlay(Move { { 11, 12 }, Player::White }, rules); // Capture!
-
-    // Setup pour 5ème capture (la gagnante)
-    board.tryPlay(Move { { 9, 13 }, Player::Black }, rules);
-    board.tryPlay(Move { { 8, 13 }, Player::White }, rules);
-    board.tryPlay(Move { { 10, 13 }, Player::Black }, rules);
-
-    std::cout << "\n  Position (Blanc a 4 paires, peut gagner avec une 5ème):" << std::endl;
-    test_utils::print_board(board);
-
-    auto caps = board.capturedPairs();
-    std::cout << "  Captures: Blanc=" << caps.white << ", Noir=" << caps.black << std::endl;
+    // C'est à Noir de jouer. Doit jouer (13,10) pour gagner.
+    printf("Black captured paris : %d\n", board.capturedPairs().black);
 
     MinimaxSearchEngine engine;
     SearchStats stats;
     auto move = engine.findBestMove(board, rules, &stats);
 
     ASSERT_TRUE(move.has_value());
-    printSearchStats(stats, "Capture gagnante");
+    print_board_with_move(board, *move, "Victoire par Capture (5ème)");
+    printSearchStats(stats);
 
-    std::cout << "\n  Position après le coup de l'IA (en " << RED << "rouge" << RESET << "):" << std::endl;
-    Board board_copy = board;
-    board_copy.tryPlay(*move, rules);
-    print_board_with_move(board_copy, move->pos);
-
-    std::cout << "  Move choisi: (" << (int)move->pos.x << ", " << (int)move->pos.y << ")" << std::endl;
-    std::cout << "  Attendu: (11, 13) [5ème capture = victoire!]" << std::endl;
-    ASSERT_TRUE(move->pos.x == 11 && move->pos.y == 13);
-
+    ASSERT_EQ(move->pos.x, 13);
+    ASSERT_EQ(move->pos.y, 10);
     TEST_PASSED();
 }
 
-// Test 10: Bloquer capture adverse gagnante
-TEST(ai_blocks_enemy_winning_capture)
+// Test 5: Priorité Victoire (5 alignés) > Capture
+TEST(ai_tactical_priority_win_over_capture)
 {
-    std::cout << "\n=== Test: Bloquer capture gagnante adverse ===" << std::endl;
-
     Board board;
     RuleSet rules;
 
-    // Noir a 4 paires capturées et menace de gagner
-    // Blanc doit absolument empêcher la 5ème capture
+    // Noir a 4 pions alignés: (5,5) à (8,5). Peut gagner en (9,5).
+    // Noir a aussi une capture possible ailleurs.
 
-    // 4 captures pour Noir (on inverse les rôles)
-    board.tryPlay(Move { { 8, 9 }, Player::Black }, rules);
-    board.tryPlay(Move { { 9, 9 }, Player::White }, rules);
-    board.tryPlay(Move { { 10, 9 }, Player::White }, rules);
-    board.tryPlay(Move { { 7, 9 }, Player::Black }, rules); // Capture!
+    // Setup 4 alignés pour Noir
+    test_utils::set_board(board, "X X X X", 5, 5);
+    // Bloqueurs blancs
+    test_utils::set_board(board, "O O O O", 5, 6);
 
-    board.tryPlay(Move { { 8, 10 }, Player::Black }, rules);
-    board.tryPlay(Move { { 9, 10 }, Player::White }, rules);
-    board.tryPlay(Move { { 10, 10 }, Player::White }, rules);
-    board.tryPlay(Move { { 7, 10 }, Player::Black }, rules); // Capture!
+    // Setup capture possible pour Noir: B(10,10) W(11,10) W(12,10) _(13,10)
+    test_utils::set_board(board, "X O O", 10, 10);
 
-    board.tryPlay(Move { { 8, 11 }, Player::Black }, rules);
-    board.tryPlay(Move { { 9, 11 }, Player::White }, rules);
-    board.tryPlay(Move { { 10, 11 }, Player::White }, rules);
-    board.tryPlay(Move { { 7, 11 }, Player::Black }, rules); // Capture!
+    board.forceSide(Player::Black);
 
-    board.tryPlay(Move { { 8, 12 }, Player::Black }, rules);
-    board.tryPlay(Move { { 9, 12 }, Player::White }, rules);
-    board.tryPlay(Move { { 10, 12 }, Player::White }, rules);
-    board.tryPlay(Move { { 7, 12 }, Player::Black }, rules); // Capture!
-
-    // Setup où Noir menace 5ème capture
-    board.tryPlay(Move { { 8, 13 }, Player::Black }, rules);
-    board.tryPlay(Move { { 9, 13 }, Player::White }, rules);
-    board.tryPlay(Move { { 10, 13 }, Player::White }, rules);
-    // Au tour de Noir, mais on teste le coup de Blanc
-    board.tryPlay(Move { { 5, 5 }, Player::Black }, rules); // Noir joue ailleurs
-
-    std::cout << "\n  Position (Noir a 4 paires, Blanc doit défendre):" << std::endl;
-    test_utils::print_board(board);
-
-    auto caps = board.capturedPairs();
-    std::cout << "  Captures: Noir=" << caps.black << ", Blanc=" << caps.white << std::endl;
+    // C'est à Noir.
+    // Choix: (9,5) pour gagner (5 alignés) OU (13,10) pour capturer.
+    // Victoire > Capture.
 
     MinimaxSearchEngine engine;
     SearchStats stats;
     auto move = engine.findBestMove(board, rules, &stats);
 
     ASSERT_TRUE(move.has_value());
-    printSearchStats(stats, "Bloquer capture gagnante");
+    print_board_with_move(board, *move, "Priorité Victoire > Capture");
+    printSearchStats(stats);
 
-    std::cout << "\n  Position après le coup de l'IA (en " << RED << "rouge" << RESET << "):" << std::endl;
-    Board board_copy = board;
-    board_copy.tryPlay(*move, rules);
-    print_board_with_move(board_copy, move->pos);
-
-    std::cout << "  Move choisi: (" << (int)move->pos.x << ", " << (int)move->pos.y << ")" << std::endl;
-    std::cout << "  Devrait protéger contre capture en (7,13)" << std::endl;
-
+    // Doit jouer (9,5) (ou (4,5) si libre, mais ici on attend une victoire)
+    bool winMove = (move->pos.x == 9 && move->pos.y == 5) || (move->pos.x == 4 && move->pos.y == 5);
+    ASSERT_TRUE(winMove);
     TEST_PASSED();
 }
 
-// Test 11: Capture dans un coin
-TEST(ai_corner_capture)
+// Test 6: Bloquer victoire adverse (Priorité Bloquer > Capture simple)
+TEST(ai_tactical_block_win_vs_capture)
 {
-    std::cout << "\n=== Test: Capture dans un coin ===" << std::endl;
-
     Board board;
     RuleSet rules;
 
-    // Test capture près du bord/coin
-    // O en (0,0), X en (1,1), X en (2,2), _ en (3,3)
-    board.tryPlay(Move { { 1, 1 }, Player::Black }, rules);
-    board.tryPlay(Move { { 0, 0 }, Player::White }, rules);
-    board.tryPlay(Move { { 2, 2 }, Player::Black }, rules);
+    // Blanc a 4 alignés (menace victoire).
+    // Noir peut faire une capture ailleurs.
+    // Noir DOIT bloquer.
 
-    std::cout << "\n  Position (capture dans le coin):" << std::endl;
-    test_utils::print_board(board);
+    // Setup Blanc 4 alignés: (5,5) à (8,5)
+    test_utils::set_board(board, "O O O O", 5, 5);
+    // Bloqueurs noirs
+    test_utils::set_board(board, "X X X", 0, 0);
+
+    // Setup capture possible pour Noir: B(10,10) W(11,10) W(12,10) _(13,10)
+    test_utils::set_board(board, "X O O", 10, 10);
+
+    board.forceSide(Player::Black);
+
+    // C'est à Noir.
+    // Menace: Blanc gagne en (9,5) ou (4,5).
+    // Noir doit bloquer en (9,5) ou (4,5).
+    // Ne doit PAS capturer en (13,10).
 
     MinimaxSearchEngine engine;
     SearchStats stats;
     auto move = engine.findBestMove(board, rules, &stats);
 
     ASSERT_TRUE(move.has_value());
-    printSearchStats(stats, "Capture coin");
+    print_board_with_move(board, *move, "Priorité Bloquer Victoire > Capture");
+    printSearchStats(stats);
 
-    std::cout << "\n  Position après le coup de l'IA (en " << RED << "rouge" << RESET << "):" << std::endl;
-    Board board_copy = board;
-    board_copy.tryPlay(*move, rules);
-    print_board_with_move(board_copy, move->pos);
-
-    std::cout << "  Move choisi: (" << (int)move->pos.x << ", " << (int)move->pos.y << ")" << std::endl;
-    std::cout << "  Attendu: (3, 3) [capture dans le coin]" << std::endl;
-    ASSERT_TRUE(move->pos.x == 3 && move->pos.y == 3);
-
+    bool blockMove = (move->pos.x == 9 && move->pos.y == 5) || (move->pos.x == 4 && move->pos.y == 5);
+    ASSERT_TRUE(blockMove);
     TEST_PASSED();
 }
 
-// Test 12: Séquence de captures forcées
-TEST(ai_forced_capture_sequence)
+// Test 7: Éviter le suicide (ne pas jouer là où on se fait capturer immédiatement)
+TEST(ai_tactical_avoid_suicide)
 {
-    std::cout << "\n=== Test: Séquence de captures forcées ===" << std::endl;
-
     Board board;
     RuleSet rules;
 
-    // Position complexe où plusieurs captures s'enchaînent
-    // Blanc peut capturer, puis Noir capture, etc.
-    board.tryPlay(Move { { 9, 9 }, Player::Black }, rules);
-    board.tryPlay(Move { { 8, 9 }, Player::White }, rules);
-    board.tryPlay(Move { { 10, 9 }, Player::Black }, rules);
-    board.tryPlay(Move { { 7, 9 }, Player::White }, rules); // Setup pour contre-capture
-    board.tryPlay(Move { { 6, 9 }, Player::Black }, rules); // Setup pour contre-capture
+    // Setup: X O . X
+    // Si Blanc (O) joue en (10,10), il forme X O O X et se fait capturer par Noir.
+    // Blanc doit éviter ce coup.
 
-    std::cout << "\n  Position (captures en chaîne possibles):" << std::endl;
-    test_utils::print_board(board);
+    test_utils::set_board(board, "X O . .", 8, 10);
+    // X(8,10), O(9,10), .(10,10), X(11,10)
+
+    board.forceSide(Player::White);
 
     MinimaxSearchEngine engine;
     SearchStats stats;
     auto move = engine.findBestMove(board, rules, &stats);
 
     ASSERT_TRUE(move.has_value());
-    printSearchStats(stats, "Séquence captures");
+    print_board_with_move(board, *move, "Éviter Suicide");
+    printSearchStats(stats);
 
-    std::cout << "\n  Position après le coup de l'IA (en " << RED << "rouge" << RESET << "):" << std::endl;
-    Board board_copy = board;
-    board_copy.tryPlay(*move, rules);
-    print_board_with_move(board_copy, move->pos);
-
-    std::cout << "  Move choisi: (" << (int)move->pos.x << ", " << (int)move->pos.y << ")" << std::endl;
-    // L'IA doit évaluer la séquence complète
-
+    // Le coup en (10, 10) est suicidaire
+    ASSERT_FALSE(move->pos.x == 10 && move->pos.y == 10);
     TEST_PASSED();
 }
 
-// ============================================================================
-// Test entry point
-// ============================================================================
+// Test 8: Contre-attaque défensive (Capturer la pierre qui nous menace)
+TEST(ai_tactical_counter_capture)
+{
+    Board board;
+    RuleSet rules;
+
+    // Setup:
+    // Blanc est menacé de capture: X O O . (par Noir en 11,10)
+    // Mais Blanc peut capturer le X menaçant (en 8,10) avec un O en 7,10
+    // Configuration: O X(menace) O O .
+
+    // O(7,10) à jouer
+    // X(8,10) (menace)
+    // O(9,10)
+    // O(10,10)
+    // .(11,10) (trou pour capture par Noir)
+    // X(12,10) (l'autre bout de la tenaille noire, disons)
+
+    // Simplifions:
+    // Menace sur Blanc: X(8,10) O(9,10) O(10,10) _(11,10)
+    // Si Noir joue (11,10), il capture O O.
+    // Blanc peut se défendre en jouant (11,10) (extension).
+    // MAIS, supposons que Blanc puisse capturer X(8,10).
+    // O(6,10) X(7,10) X(8,10) -> Blanc joue (9,10)? Non.
+
+    // Refaisons le setup pour que la capture soit la MEILLEURE défense.
+    // Menace: X(10,10) O(11,10) O(12,10) _(13,10)  (Noir va jouer 13,10)
+    // Opportunité Blanc: O(7,10) X(8,10) X(9,10) _(10,10)
+    // Si Blanc joue (10,10), il capture X(8,10) et X(9,10).
+    // En capturant, il supprime la pierre X(10,10) ? Non, X(10,10) est une autre pierre.
+
+    // Cas : Capturer LA pierre menaçante.
+    // Menace: X(9,10) O(10,10) O(11,10) _(12,10)
+    // Pour capturer X(9,10), Blanc a besoin de : O(6,10) X(7,10) X(8,10) [X(9,10)]
+    // Non, X(9,10) doit être le bout d'une paire noire.
+    // Disons: O(6,10) X(7,10) X(8,10) O(9,10)
+    // Blanc joue (9,10), capture X(7,10) et X(8,10).
+
+    // Setup combiné:
+    // Une paire blanche menacée: X(8,10) O(9,10) O(10,10) _(11,10)
+    // La pierre X(8,10) fait partie d'une paire noire capturable: O(5,10) X(6,10) X(7,10) [X(8,10)] -> Non
+    // La pierre X(8,10) est vulnérable si Blanc joue en 7,10 ?
+    // O(5,10) X(6,10) X(7,10) ...
+
+    // Essayons plus simple:
+    // Blanc O O est menacé.
+    // Blanc peut jouer pour capturer une paire adverse AILLEURS qui est plus valables,
+    // OU capturer la pierre qui sert d'appui à la capture.
+
+    // Setup:
+    // Menace sur Blanc: X(9,9) O(10,9) O(11,9) .(12,9)
+    // Capture dispo pour Blanc: O(9,8) X(9,9) X(9,10) .(9,11)
+    // La pierre X(9,9) est commune !
+    // Si Blanc joue (9,11), il capture X(9,9) et X(9,10).
+    // En capturant X(9,9), la menace sur la ligne 9 disparaît !
+
+    test_utils::set_board(board, R"(
+        . O . .
+        . X O O .
+        . X . .
+        . . . .
+    )",
+        8, 8);
+
+    // Analyse du board ci-dessus (offset 8,8):
+    // Ligne 8: . O(9,8) . .
+    // Ligne 9: X(8,9) X(9,9) O(10,9) O(11,9) .(12,9)
+    // Ligne 10: . X(9,10) . .
+
+    // Menace: Noir peut jouer en (12,9) pour capturer O(10,9) et O(11,9).
+    // Défense classique: Blanc joue (12,9).
+    // Contre-attaque: Blanc joue (9,11) ? Non, alignement vertical X(9,9) X(9,10).
+    // Il faut O(9,8) (déjà là) et jouer O(9,11).
+    // Si Blanc joue (9,11), il capture X(9,9) et X(9,10).
+    // X(9,9) disparaît. La menace horizontale X(9,9)-O-O disparaît.
+    // C'est une défense active !
+
+    // On ajoute un O en (9,11) pour que le coup soit valide (capture)
+    // Ah non, c'est à Blanc de jouer en (9,11).
+
+    board.forceSide(Player::White);
+
+    MinimaxSearchEngine engine;
+    SearchStats stats;
+    auto move = engine.findBestMove(board, rules, &stats);
+
+    ASSERT_TRUE(move.has_value());
+    print_board_with_move(board, *move, "Contre-attaque (Capture défensive)");
+    printSearchStats(stats);
+
+    // Le coup en (9, 11) capture 2 pions ET sauve la paire O-O
+    // C'est mieux que juste défendre en (12,9) (qui ne capture rien)
+    ASSERT_EQ(move->pos.x, 9);
+    ASSERT_EQ(move->pos.y, 11);
+    TEST_PASSED();
+}
+
+// Test 9: Victoire par Capture > Bloquer Défaite (4 semi-fermé adverse)
+// Le joueur a 4 paires.
+// L'adversaire a un 4 semi-fermé (menace de victoire immédiate).
+// Le joueur peut bloquer OU capturer une paire (victoire immédiate par 5 paires).
+// Il doit choisir la capture (Victoire > Ne pas perdre).
+TEST(ai_tactical_win_capture_vs_block_loss)
+{
+    Board board;
+    RuleSet rules;
+
+    // 1. Setup: White captures 4 pairs manually
+    for (uint8_t y = 0; y < 4; ++y) {
+        board.tryPlay(Move { { 1, y }, Player::Black }, rules);
+        board.tryPlay(Move { { 0, y }, Player::White }, rules);
+        board.tryPlay(Move { { 2, y }, Player::Black }, rules);
+        board.tryPlay(Move { { 3, y }, Player::White }, rules);
+    }
+    board.tryPlay(Move { { 3, 4 }, Player::Black }, rules);
+    board.forceSide(Player::Black);
+    board.tryPlay(Move { { 0, 4 }, Player::Black }, rules);
+    ASSERT_EQ(board.stoneCount(Player::Black), 2);
+
+    // 2. Setup Tactical Situation (offset 5,5)
+    // White (O) to play.
+    // Option A: Block opponent's semi-open four.
+    //   Row 6: O X X X X . -> Black threatens to play at dot. White can block there.
+    // Option B: Capture a pair.
+    //   Row 8: O X X .   -> Play (8,8) captures X X.
+
+    test_utils::set_board(board, R"(
+        . . . . . .
+        O X X X X .
+        . . . . . .
+        O X X . . .
+    )",
+        5, 5);
+
+    // Coordinates:
+    // Row 1 (y=6): O(5,6) X(6,6) X(7,6) X(8,6) X(9,6) .(10,6)
+    //   -> Black threatens (10,6). White blocking move is (10,6).
+    // Row 3 (y=8): O(5,8) X(6,8) X(7,8) .(8,8)
+    //   -> White capturing move is (8,8).
+
+    board.forceSide(Player::White);
+
+    MinimaxSearchEngine engine;
+    SearchStats stats;
+    auto move = engine.findBestMove(board, rules, &stats);
+
+    ASSERT_TRUE(move.has_value());
+    print_board_with_move(board, *move, "Victoire Capture vs Bloquer Défaite");
+    printSearchStats(stats);
+
+    // Expectation: Capture at (8,8) because it wins the game immediately.
+    // Blocking at (10,6) only prolongs the game.
+    ASSERT_EQ(move->pos.x, 8);
+    ASSERT_EQ(move->pos.y, 8);
+    TEST_PASSED();
+}
 
 void run_all_ai_tactical_tests()
 {
-    test_framework::run_all_tests("AI Tactical (Captures)");
+    test_framework::run_all_tests("AI Tactical (Captures & Priorities)");
 }

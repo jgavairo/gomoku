@@ -12,7 +12,7 @@ struct CandidateConfig {
     uint8_t groupGap = 1; // distance Chebyshev pour grouper les îlots
     uint8_t margin = 1; // dilatation des rectangles
     uint8_t ringR = 1; // anneau de génération autour des pierres
-    uint16_t maxCandidates = 42; // augmenté de 32 à 42 (compromis)
+    uint16_t maxCandidates = 128; // augmenté pour éviter de rater des coups critiques
     bool includeOpponentRing = true; // anneau aussi autour des pierres adverses
 };
 
