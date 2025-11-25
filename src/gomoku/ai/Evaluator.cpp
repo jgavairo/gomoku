@@ -92,7 +92,7 @@ int evaluate(const Board& board, Player perspective) noexcept
     // 1) Captures differential (pairs). Each pair is valuable tactically.
     const auto caps = board.capturedPairs();
     const int capDiff = (perspective == Player::Black) ? (caps.black - caps.white) : (caps.white - caps.black);
-    constexpr int CAPTURE_PAIR_VALUE = 3000; // tuned later
+    constexpr int CAPTURE_PAIR_VALUE = 4500; // Increased to prioritize captures over simple blocks
     score += capDiff * CAPTURE_PAIR_VALUE;
 
     // 2) Centrality (manhattan distance to center). Encourages occupying the center early.
@@ -157,17 +157,17 @@ int evaluate(const Board& board, Player perspective) noexcept
         int baseValue = 0;
         switch (len) {
         case 4:
-            baseValue = (openEnds >= 2) ? 10000 : 2500;
+            baseValue = (openEnds >= 2) ? 20000 : 8000;
             break;
         case 3:
-            baseValue = (openEnds >= 2) ? 600 : 150;
+            baseValue = (openEnds >= 2) ? 2000 : 500;
             break;
         case 2:
-            baseValue = (openEnds >= 2) ? 80 : 20;
+            baseValue = (openEnds >= 2) ? 200 : 50;
             break;
         case 1:
         default:
-            baseValue = (openEnds >= 2) ? 10 : 2;
+            baseValue = (openEnds >= 2) ? 20 : 5;
             break;
         }
 
@@ -261,7 +261,7 @@ int evaluate(const Board& board, Player perspective) noexcept
 
                 if (splitTotal >= 4) {
                     // Equivalent to a closed four (one winning spot in the gap)
-                    splitVal = 2500;
+                    splitVal = 8000;
                     threats[1]++; // closed_four
                 } else if (splitTotal == 3) {
                     // Check if the far end is open
@@ -270,11 +270,11 @@ int evaluate(const Board& board, Player perspective) noexcept
 
                     if (splitEnds >= 2) {
                         // Open broken three: . X X . X . -> becomes Open Four
-                        splitVal = 600;
+                        splitVal = 2000;
                         threats[2]++; // open_three
                     } else {
                         // Closed broken three
-                        splitVal = 150;
+                        splitVal = 500;
                         threats[3]++; // closed_three
                     }
                 }
@@ -289,7 +289,7 @@ int evaluate(const Board& board, Player perspective) noexcept
             if (c == me && hasCapturePattern(board, x, y, dx, dy, me, opp)) {
                 potentialCaptureScore += 400; // Bonus for potential capture setup
             } else if (c == opp && hasCapturePattern(board, x, y, dx, dy, opp, me)) {
-                potentialCaptureScore -= 400; // Penalty if opponent has capture setup
+                potentialCaptureScore -= 600; // Penalty if opponent has capture setup
             }
 
             // Classify threat for strategic combinations

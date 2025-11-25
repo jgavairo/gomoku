@@ -365,10 +365,10 @@ TEST(ai_tactical_counter_capture)
     // En capturant X(9,9), la menace sur la ligne 9 disparaît !
 
     test_utils::set_board(board, R"(
-        . O . .
-        . X O O .
-        . X . .
-        . . . .
+        . O . . . . . O
+        . X O O . . . X
+        . X . . . . . X
+        . . . . . . . .
     )",
         8, 8);
 
@@ -397,6 +397,8 @@ TEST(ai_tactical_counter_capture)
     ASSERT_TRUE(move.has_value());
     print_board_with_move(board, *move, "Contre-attaque (Capture défensive)");
     printSearchStats(stats);
+
+    std::cout << "AI played: " << (int)move->pos.x << "," << (int)move->pos.y << std::endl;
 
     // Le coup en (9, 11) capture 2 pions ET sauve la paire O-O
     // C'est mieux que juste défendre en (12,9) (qui ne capture rien)
