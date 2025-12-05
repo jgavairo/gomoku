@@ -42,8 +42,10 @@ GameScene::GameScene(Context& context, bool vsAi)
     // Configure controllers according to mode
     if (vsAi_) {
         // Default SessionController ctor is Black:Human, White:AI; keep as is for now
-        gameSession_.setController(gomoku::Player::Black, gomoku::Controller::Human);
-        gameSession_.setController(gomoku::Player::White, gomoku::Controller::AI);
+        gameSession_.setController(gomoku::Player::Black, gomoku::Controller::AI);
+        gameSession_.setController(gomoku::Player::White, gomoku::Controller::Human);
+        pendingAi_ = true;
+        framePresented_ = false; // wait for next render() before starting AI
     } else {
         gameSession_.setController(gomoku::Player::Black, gomoku::Controller::Human);
         gameSession_.setController(gomoku::Player::White, gomoku::Controller::Human);
@@ -135,6 +137,7 @@ bool GameScene::handleInput(sf::Event& event)
         }
         return false;
     }
+
 
     if (context_.window && event.type == sf::Event::MouseButtonPressed) {
         auto btn = event.mouseButton.button;
