@@ -131,6 +131,47 @@ TEST(ai_advanced_user_scenario_2)
     printSearchStats(stats);
 }
 
+TEST(ai_advanced_user_scenario_3)
+{
+    Board board;
+    RuleSet rules;
+
+    // Setup from user board using BoardBuilder
+    test_utils::set_board(board, R"(
+. . . . . X . . . O . . .
+. . O . O . O . X . . . .
+. . . X . O . X O . . O .
+. . X O X . X . X O . . .
+. X . . . X . O . X . . .
+O . O . . O . . O . O . .
+. . . . . X . O . . . . .
+. X X X X O O . . . . . .
+. . X X . O . . . . . . .
+. . . . X . . . . . . . .
+. . . . . O . . . . . . .
+    )",
+        3, 4);
+
+    // print board for debugging
+    print_board_with_move(board, Move { { 0, 0 }, Player::Black }, "Initial Board State Scenario 3");
+
+    board.forceSide(Player::Black);
+    MinimaxSearchEngine engine;
+    SearchStats stats;
+    auto move = engine.findBestMove(board, rules, &stats);
+
+    // print move for debugging
+    if (move.has_value()) {
+        std::cout << "AI played: " << (int)move->pos.x << "," << (int)move->pos.y << std::endl;
+        print_board_with_move(board, *move, "User Scenario 3");
+    } else {
+        std::cout << "AI found no move!" << std::endl;
+    }
+    printSearchStats(stats);
+
+    ASSERT_TRUE(move.has_value());
+}
+
 void run_all_ai_advanced_tests()
 {
     test_framework::run_all_tests("AI Advanced Tests (Cluttered Board)");

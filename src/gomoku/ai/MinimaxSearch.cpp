@@ -278,7 +278,26 @@ int MinimaxSearch::negamax(Board& board, int depth, int alpha, int beta, int ply
 
         foundLegalMove = true;
         std::vector<Move> childPV;
-        int score = -negamax(board, depth - 1, -beta, -alpha, ply + 1, childPV, ctx);
+        int score;
+
+        if (bestScore == -search::INF) {
+            // Premier coup (PV-node) : fenêtre pleine
+            score = -negamax(board, depth - 1, -beta, -alpha, ply + 1, childPV, ctx);
+        } else {
+            // Coups suivants (Cut-nodes) : fenêtre nulle (Null Window Search)
+            // On parie que le coup ne va pas améliorer alpha
+            score = -negamax(board, depth - 1, -alpha - 1, -alpha, ply + 1, childPV, ctx);
+
+            // Si le pari est perdu (score > alpha), on doit refaire une recherche complète
+            // sauf si on a déjà causé un beta-cutoff
+            if (score > alpha && score < beta) {
+                if (!ctx.isTimeUp()) {
+                    childPV.clear();
+                    score = -negamax(board, depth - 1, -beta, -alpha, ply + 1, childPV, ctx);
+                }
+            }
+        }
+
         board.undo();
 
         // Si timeout après le premier coup, retourner le meilleur score trouvé
