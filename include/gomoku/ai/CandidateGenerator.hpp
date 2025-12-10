@@ -20,6 +20,9 @@ class CandidateGenerator {
 public:
     static std::vector<Move> generate(const Board& b, const RuleSet& rules,
         Player toPlay, const CandidateConfig& cfg);
+
+    // Génère uniquement les coups tactiques (captures, menaces de gain)
+    static std::vector<Move> generateTactical(const Board& b, const RuleSet& rules, Player toPlay);
 };
 
 } // namespace gomoku

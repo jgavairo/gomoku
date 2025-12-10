@@ -92,7 +92,7 @@ int evaluate(const Board& board, Player perspective) noexcept
     // 1) Captures differential (pairs). Each pair is valuable tactically.
     const auto caps = board.capturedPairs();
     const int capDiff = (perspective == Player::Black) ? (caps.black - caps.white) : (caps.white - caps.black);
-    constexpr int CAPTURE_PAIR_VALUE = 4500; // Increased to prioritize captures over simple blocks
+    constexpr int CAPTURE_PAIR_VALUE = 8000; // Increased to prioritize captures over closed fours (6000)
     score += capDiff * CAPTURE_PAIR_VALUE;
 
     // 2) Centrality (manhattan distance to center). Encourages occupying the center early.
@@ -181,7 +181,7 @@ int evaluate(const Board& board, Player perspective) noexcept
 
         // Penalty if cannot extend to 5
         if (!canWin && len < 5) {
-            adjustedValue = (adjustedValue * 3) / 10; // Severe penalty for dead-end alignments
+            adjustedValue = 0; // Dead lines are worthless
         }
 
         return adjustedValue;
@@ -275,10 +275,13 @@ int evaluate(const Board& board, Player perspective) noexcept
                         // Open broken three: . X X . X . -> becomes Open Four
                         splitVal = 2000;
                         threats[2]++; // open_three
-                    } else {
+                    } else if (splitEnds == 1) {
                         // Closed broken three
                         splitVal = 500;
                         threats[3]++; // closed_three
+                    } else {
+                        // Dead broken three (blocked both sides)
+                        splitVal = 0;
                     }
                 }
 

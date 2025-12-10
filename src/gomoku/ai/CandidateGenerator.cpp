@@ -337,4 +337,101 @@ std::vector<Move> CandidateGenerator::generate(const Board& b, const RuleSet& ru
     return out;
 }
 
+std::vector<Move> CandidateGenerator::generateTactical(const Board& b, const RuleSet& /*rules*/, Player toPlay)
+{
+    std::vector<Move> moves;
+    moves.reserve(64);
+    SeenSet seen; // bitset to avoid duplicates
+
+    const auto& occ = b.occupiedPositions();
+    const Cell me = (toPlay == Player::Black) ? Cell::Black : Cell::White;
+    const Cell opp = (toPlay == Player::Black) ? Cell::White : Cell::Black;
+
+    auto add = [&](int x, int y) {
+        if (inside(x, y) && markIfNew(seen, x, y)) {
+            if (b.at((uint8_t)x, (uint8_t)y) == Cell::Empty) {
+                moves.push_back(Move { Pos { (uint8_t)x, (uint8_t)y }, toPlay });
+            }
+        }
+    };
+
+    // Directions: E, S, SE, SW
+    constexpr int dx[] = { 1, 0, 1, 1 };
+    constexpr int dy[] = { 0, 1, 1, -1 };
+
+    for (const auto& p : occ) {
+        int x = p.x;
+        int y = p.y;
+        Cell c = b.at((uint8_t)x, (uint8_t)y);
+
+        for (int d = 0; d < 4; ++d) {
+            // 1. Captures: X O O _ (we are X, looking for _)
+            if (c == me) {
+                // Check forward: X O O ?
+                if (inside(x + 3 * dx[d], y + 3 * dy[d])) {
+                    if (b.at((uint8_t)(x + dx[d]), (uint8_t)(y + dy[d])) == opp && b.at((uint8_t)(x + 2 * dx[d]), (uint8_t)(y + 2 * dy[d])) == opp && b.at((uint8_t)(x + 3 * dx[d]), (uint8_t)(y + 3 * dy[d])) == Cell::Empty) {
+                        add(x + 3 * dx[d], y + 3 * dy[d]);
+                    }
+                }
+                // Check backward: ? O O X
+                if (inside(x - 3 * dx[d], y - 3 * dy[d])) {
+                    if (b.at((uint8_t)(x - dx[d]), (uint8_t)(y - dy[d])) == opp && b.at((uint8_t)(x - 2 * dx[d]), (uint8_t)(y - 2 * dy[d])) == opp && b.at((uint8_t)(x - 3 * dx[d]), (uint8_t)(y - 3 * dy[d])) == Cell::Empty) {
+                        add(x - 3 * dx[d], y - 3 * dy[d]);
+                    }
+                }
+            }
+
+            // 2. Threats (4 or 5)
+            // Check window of 4 cells (for 3 stones -> potential 4)
+            if (inside(x + 3 * dx[d], y + 3 * dy[d])) {
+                Cell c1 = b.at((uint8_t)x, (uint8_t)y);
+                Cell c2 = b.at((uint8_t)(x + dx[d]), (uint8_t)(y + dy[d]));
+                Cell c3 = b.at((uint8_t)(x + 2 * dx[d]), (uint8_t)(y + 2 * dy[d]));
+                Cell c4 = b.at((uint8_t)(x + 3 * dx[d]), (uint8_t)(y + 3 * dy[d]));
+
+                int cnt = (c1 == c) + (c2 == c) + (c3 == c) + (c4 == c);
+                int empty = (c1 == Cell::Empty) + (c2 == Cell::Empty) + (c3 == Cell::Empty) + (c4 == Cell::Empty);
+
+                if (cnt == 3 && empty == 1) {
+                    if (c1 == Cell::Empty)
+                        add(x, y);
+                    if (c2 == Cell::Empty)
+                        add(x + dx[d], y + dy[d]);
+                    if (c3 == Cell::Empty)
+                        add(x + 2 * dx[d], y + 2 * dy[d]);
+                    if (c4 == Cell::Empty)
+                        add(x + 3 * dx[d], y + 3 * dy[d]);
+                }
+            }
+
+            // Check window of 5 cells (for 4 stones -> potential 5)
+            if (inside(x + 4 * dx[d], y + 4 * dy[d])) {
+                Cell c1 = b.at((uint8_t)x, (uint8_t)y);
+                Cell c2 = b.at((uint8_t)(x + dx[d]), (uint8_t)(y + dy[d]));
+                Cell c3 = b.at((uint8_t)(x + 2 * dx[d]), (uint8_t)(y + 2 * dy[d]));
+                Cell c4 = b.at((uint8_t)(x + 3 * dx[d]), (uint8_t)(y + 3 * dy[d]));
+                Cell c5 = b.at((uint8_t)(x + 4 * dx[d]), (uint8_t)(y + 4 * dy[d]));
+
+                int cnt = (c1 == c) + (c2 == c) + (c3 == c) + (c4 == c) + (c5 == c);
+                int empty = (c1 == Cell::Empty) + (c2 == Cell::Empty) + (c3 == Cell::Empty) + (c4 == Cell::Empty) + (c5 == Cell::Empty);
+
+                if (cnt == 4 && empty == 1) {
+                    if (c1 == Cell::Empty)
+                        add(x, y);
+                    if (c2 == Cell::Empty)
+                        add(x + dx[d], y + dy[d]);
+                    if (c3 == Cell::Empty)
+                        add(x + 2 * dx[d], y + 2 * dy[d]);
+                    if (c4 == Cell::Empty)
+                        add(x + 3 * dx[d], y + 3 * dy[d]);
+                    if (c5 == Cell::Empty)
+                        add(x + 4 * dx[d], y + 4 * dy[d]);
+                }
+            }
+        }
+    }
+
+    return moves;
+}
+
 } // namespace gomoku

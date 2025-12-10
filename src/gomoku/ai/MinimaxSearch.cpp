@@ -107,7 +107,6 @@ std::optional<Move> MinimaxSearch::bestMove(Board& board, const RuleSet& rules, 
                 goto depth_loop_end;
             }
 
-
             // Check if score fell outside aspiration window
             if (cfg.useAspirationWindows && depth > 1) {
                 if (bestScore <= alpha) {
@@ -320,7 +319,6 @@ int MinimaxSearch::negamax(Board& board, int depth, int alpha, int beta, int ply
 //    • captures de paires qui gagnent ou évitent une défaite par captures,
 //    • éventuellement prolongations locales de menaces fortes.
 //  - Évite d’explorer des coups calmes qui n’affectent pas les menaces en cours.
-// TODO: stand-pat (éval statique), delta pruning adapté aux marges de menaces, génération coups tactiques.
 int MinimaxSearch::qsearch(Board& board, int alpha, int beta, int ply, const SearchContext& ctx)
 {
     ctx.recordQNode();
@@ -342,10 +340,34 @@ int MinimaxSearch::qsearch(Board& board, int alpha, int beta, int ply, const Sea
     if (standPat > alpha)
         alpha = standPat;
 
-    // Pour l'instant, pas de recherche tactique supplémentaire
-    // (peut être ajouté plus tard : captures, menaces de 4, etc.)
+    // Recherche tactique : captures et menaces
+    // On limite la profondeur de qsearch pour éviter l'explosion combinatoire
+    // même sur les coups tactiques (ex: 4 plies max de qsearch)
+    // Mais ici on n'a pas de paramètre depth_q. On suppose que les coups tactiques s'épuisent.
+    // Pour sécurité, on peut checker ctx.isTimeUp()
+    if (ctx.isTimeUp())
+        return alpha;
 
-    return standPat;
+    auto moves = CandidateGenerator::generateTactical(board, ctx.rules, toMove);
+
+    // Tri basique : captures d'abord ?
+    // Pour l'instant on fait confiance à l'ordre de génération (qui est spatial)
+
+    for (const auto& m : moves) {
+        auto pr = board.tryPlay(m, ctx.rules);
+        if (!pr.success)
+            continue;
+
+        int score = -qsearch(board, -beta, -alpha, ply + 1, ctx);
+        board.undo();
+
+        if (score >= beta)
+            return beta;
+        if (score > alpha)
+            alpha = score;
+    }
+
+    return alpha;
 }
 
 bool MinimaxSearch::runDepthWithWindow(int depth, Board& board, const RuleSet& rules, Player toPlay,
