@@ -5,11 +5,17 @@
 
 namespace gomoku::ai {
 
-MinimaxSearchEngine::MinimaxSearchEngine(): searchImpl_(SearchConfig {}), config_ {}
-{}
+MinimaxSearchEngine::MinimaxSearchEngine()
+    : searchImpl_(SearchConfig {})
+    , config_ {}
+{
+}
 
-MinimaxSearchEngine::MinimaxSearchEngine(const SearchConfig& config): searchImpl_(config), config_(config)
-{}
+MinimaxSearchEngine::MinimaxSearchEngine(const SearchConfig& config)
+    : searchImpl_(config)
+    , config_(config)
+{
+}
 
 void MinimaxSearchEngine::setTimeLimit(int milliseconds)
 {
@@ -29,7 +35,7 @@ void MinimaxSearchEngine::setTranspositionTableSize(size_t bytes)
     searchImpl_.setTranspositionTableSize(bytes);
 }
 
-std::optional<Move> MinimaxSearchEngine::findBestMove( const IBoardView& board, const RuleSet& rules, SearchStats* stats)
+std::optional<Move> MinimaxSearchEngine::findBestMove(const IBoardView& board, const RuleSet& rules, SearchStats* stats)
 {
     // Convert IBoardView to concrete Board for MinimaxSearch class
     Board concreteBoard = boardFromView(board);
@@ -41,7 +47,7 @@ std::optional<Move> MinimaxSearchEngine::findBestMove( const IBoardView& board, 
     return result;
 }
 
-std::optional<Move> MinimaxSearchEngine::suggestMove( const IBoardView& board, const RuleSet& rules, int timeMs, SearchStats* stats)
+std::optional<Move> MinimaxSearchEngine::suggestMove(const IBoardView& board, const RuleSet& rules, int timeMs, SearchStats* stats)
 {
     int oldTimeMs = config_.timeBudgetMs;
     searchImpl_.setTimeBudgetMs(timeMs);
@@ -55,15 +61,20 @@ std::optional<Move> MinimaxSearchEngine::suggestMove( const IBoardView& board, c
 
 int MinimaxSearchEngine::evaluatePosition(const IBoardView& board, Player perspective) const
 {
-    Board concreteBoard = boardFromView(board);
-    return searchImpl_.evaluatePublic(concreteBoard, perspective);
+    // Pas de copie, juste un cast de référence/pointeur
+    if (auto concreteBoard = dynamic_cast<const gomoku::Board*>(&board)) {
+        return searchImpl_.evaluatePublic(*concreteBoard, perspective);
+    }
+    return 0; // ou exception
 }
 
 std::vector<Move> MinimaxSearchEngine::getOrderedMoves(const IBoardView& board, const RuleSet& rules) const
 {
-    Board concreteBoard = boardFromView(board);
-    Player toPlay = concreteBoard.toPlay();
-    return searchImpl_.orderedMovesPublic(concreteBoard, rules, toPlay);
+    if (auto concreteBoard = dynamic_cast<const gomoku::Board*>(&board)) {
+        Player toPlay = concreteBoard->toPlay();
+        return searchImpl_.orderedMovesPublic(*concreteBoard, rules, toPlay);
+    }
+    return {};
 }
 
 void MinimaxSearchEngine::clearTranspositionTable()

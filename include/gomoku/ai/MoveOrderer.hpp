@@ -35,7 +35,6 @@ public:
 
     // Hooks heuristiques (à appeler depuis la recherche) :
     void onBetaCut(int ply, const Move& m); // killer + history++
-    void onFailLow(int ply, const std::vector<Move>&); // optionnel: history--
     void clearForNewIteration(int maxPly); // reset killers/history
 
 private:
@@ -74,7 +73,6 @@ private:
     void ensureCapacity(int maxPly);
     void pushKiller(int ply, const Move& m);
     int capForDepth(int depth) const;
-    void dedupeLinear(std::vector<Move>& moves) const;
 };
 
 } // namespace gomoku

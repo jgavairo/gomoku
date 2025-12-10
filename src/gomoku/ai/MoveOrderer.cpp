@@ -55,12 +55,6 @@ void MoveOrderer::onBetaCut(int ply, const Move& m)
     h = std::min(h + 256, 100'000); // Reduced max from 2M to 100k to prevent overshadowing tactical eval
 }
 
-void MoveOrderer::onFailLow(int /*ply*/, const std::vector<Move>& /*tried*/)
-{
-    // Optionnel: décrémenter un peu l’history des moves non productifs
-    // (à n’activer que si ça aide tes tests).
-}
-
 int MoveOrderer::capForDepth(int depth) const
 {
     if (depth >= 8)
@@ -70,22 +64,6 @@ int MoveOrderer::capForDepth(int depth) const
     if (depth >= 2)
         return cfg_.capShallow;
     return cfg_.capNearLeaf;
-}
-
-void MoveOrderer::dedupeLinear(std::vector<Move>& moves) const
-{
-    std::vector<uint8_t> seen(BOARD_SIZE * BOARD_SIZE, 0);
-    auto flat = [](const Pos& p) { return (int)p.y * BOARD_SIZE + (int)p.x; };
-    std::vector<Move> out;
-    out.reserve(moves.size());
-    for (auto& m : moves) {
-        int id = flat(m.pos);
-        if (!seen[id]) {
-            seen[id] = 1;
-            out.push_back(m);
-        }
-    }
-    moves.swap(out);
 }
 
 std::vector<Move> MoveOrderer::order(Board& board,
@@ -99,7 +77,6 @@ std::vector<Move> MoveOrderer::order(Board& board,
     std::vector<Move> moves;
     if (baseMoves && !baseMoves->empty()) {
         moves = *baseMoves;
-        dedupeLinear(moves);
     } else {
         moves = CandidateGenerator::generate(board, rules, toMove, CandidateConfig {});
         if (moves.empty())
@@ -127,10 +104,6 @@ std::vector<Move> MoveOrderer::order(Board& board,
     for (size_t i = start; i < moves.size(); ++i) {
         const Move& m = moves[i];
 
-        // Killer bonus (faible) : s’il matche un killer récent au même ply
-        int killerBonus = 0; // le ply n'est pas connu ici; on pourrait passer le ply en param si tu veux booster
-        // (tu peux ignorer killerBonus ici et ne l'utiliser que dans le tri interne via onBetaCut)
-
         // Essayage spéculatif
         ScopedPlay g(board, m, rules);
         if (!g.ok)
@@ -146,7 +119,7 @@ std::vector<Move> MoveOrderer::order(Board& board,
         }
         // History bonus - diviseur réduit pour impact fort
         ensureCapacity(1); // s'assure que history_ existe
-        s += history_[idxHistory(m.by, m.pos)] / 10 + killerBonus; // Scaled to max ~10,000
+        s += history_[idxHistory(m.by, m.pos)] / 10; // Scaled to max ~10,000
 
         scored.push_back({ m, s, /*tie*/ 0 });
     }
