@@ -157,10 +157,10 @@ int evaluate(const Board& board, Player perspective) noexcept
         int baseValue = 0;
         switch (len) {
         case 4:
-            baseValue = (openEnds >= 2) ? 20000 : 8000;
+            baseValue = (openEnds >= 2) ? 40000 : 6000;
             break;
         case 3:
-            baseValue = (openEnds >= 2) ? 2000 : 500;
+            baseValue = (openEnds >= 2) ? 3000 : 500;
             break;
         case 2:
             baseValue = (openEnds >= 2) ? 200 : 50;
@@ -209,6 +209,9 @@ int evaluate(const Board& board, Player perspective) noexcept
             // Only start at the beginning of a run for this direction
             if (inside(prevX, prevY)) {
                 if (board.at(static_cast<uint8_t>(prevX), static_cast<uint8_t>(prevY)) == c)
+                    continue;
+                // Avoid double counting split patterns (if we are the second part of X _ X)
+                if (isEmpty(board, prevX, prevY) && inside(prevX - dx, prevY - dy) && board.at(static_cast<uint8_t>(prevX - dx), static_cast<uint8_t>(prevY - dy)) == c)
                     continue;
             }
 
@@ -318,27 +321,27 @@ int evaluate(const Board& board, Player perspective) noexcept
 
     // Open-four + open-three: very strong
     if (myThreats[0] >= 1 && myThreats[2] >= 1)
-        figureBonus += 15000;
+        figureBonus += 20000;
     if (oppThreats[0] >= 1 && oppThreats[2] >= 1)
-        figureBonus -= 15000;
+        figureBonus -= 20000;
 
     // Double open-three: strong fork
     if (myThreats[2] >= 2)
-        figureBonus += 5000;
+        figureBonus += 12000;
     if (oppThreats[2] >= 2)
-        figureBonus -= 5000;
+        figureBonus -= 12000;
 
     // Open-three + closed-four: forcing sequence
     if (myThreats[0] >= 1 && myThreats[3] >= 1)
-        figureBonus += 3000;
+        figureBonus += 5000;
     if (oppThreats[0] >= 1 && oppThreats[3] >= 1)
-        figureBonus -= 3000;
+        figureBonus -= 5000;
 
     // Multiple open-threes (3+): overwhelming position
     if (myThreats[2] >= 3)
-        figureBonus += 8000;
+        figureBonus += 15000;
     if (oppThreats[2] >= 3)
-        figureBonus -= 8000;
+        figureBonus -= 15000;
 
     score += figureBonus;
 

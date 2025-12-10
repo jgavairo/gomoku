@@ -71,7 +71,6 @@ std::optional<Move> MinimaxSearch::bestMove(Board& board, const RuleSet& rules, 
             // Note: not counting nodes here as this is a shortcut, not a full search
             stats->finalize(start, /*depth*/ 1, { *iw });
         }
-        Logger::getInstance().info("AI: Immediate win found!");
         return iw;
     }
 
@@ -80,9 +79,6 @@ std::optional<Move> MinimaxSearch::bestMove(Board& board, const RuleSet& rules, 
     std::vector<Move> pv;
     int maxDepth = cfg.maxDepthHint;
     int bestScore = -search::INF;
-
-    Logger::getInstance().debug("AI: Starting iterative deepening - max depth {}, aspiration {} (delta {}), TT size {} MB",
-        maxDepth, cfg.useAspirationWindows ? "enabled" : "disabled", cfg.aspirationDelta, cfg.ttBytes / (1024 * 1024));
 
     for (int depth = 1; depth <= maxDepth; ++depth) {
         int alpha, beta;
@@ -97,51 +93,33 @@ std::optional<Move> MinimaxSearch::bestMove(Board& board, const RuleSet& rules, 
             // Aspiration window: narrow search around previous score
             alpha = bestScore - cfg.aspirationDelta;
             beta = bestScore + cfg.aspirationDelta;
-            Logger::getInstance().debug("AI: Depth {} starting with aspiration window [{}, {}] around score {}",
-                depth, alpha, beta, bestScore);
         }
 
         bool searchComplete = false;
         int windowWidenCount = 0;
         const int maxReSearches = 2; // Limit re-searches (reduced from 3 to avoid wasted time)
-        long long nodesBefore = stats ? stats->nodes : 0;
 
         // Aspiration window re-search loop
         while (!searchComplete && windowWidenCount < maxReSearches) {
-            long long nodesAtStart = stats ? stats->nodes : 0;
 
             if (!runDepthWithWindow(depth, board, rules, toPlay, candidates, best, bestScore, pv, ctx, alpha, beta)) {
                 // Search failed (timeout or no moves)
-                if (ctx.isTimeUp()) {
-                    Logger::getInstance().debug("AI: Time budget exceeded at depth {}", depth);
-                }
                 goto depth_loop_end;
             }
 
-            long long nodesThisSearch = (stats ? stats->nodes : 0) - nodesAtStart;
 
             // Check if score fell outside aspiration window
             if (cfg.useAspirationWindows && depth > 1) {
                 if (bestScore <= alpha) {
                     // Failed low: widen window downward
-                    int oldAlpha = alpha;
                     alpha = std::max(alpha - cfg.aspirationDelta * cfg.aspirationWidenFactor, -search::INF);
-                    Logger::getInstance().debug("AI: Aspiration fail-low at depth {} (score {} <= {}), {} nodes, widening to [{}, {}]",
-                        depth, bestScore, oldAlpha, nodesThisSearch, alpha, beta);
                     windowWidenCount++;
                 } else if (bestScore >= beta) {
                     // Failed high: widen window upward
-                    int oldBeta = beta;
                     beta = std::min(beta + cfg.aspirationDelta * cfg.aspirationWidenFactor, search::INF);
-                    Logger::getInstance().debug("AI: Aspiration fail-high at depth {} (score {} >= {}), {} nodes, widening to [{}, {}]",
-                        depth, bestScore, oldBeta, nodesThisSearch, alpha, beta);
                     windowWidenCount++;
                 } else {
                     // Score within window: success!
-                    if (windowWidenCount > 0) {
-                        Logger::getInstance().debug("AI: Aspiration success at depth {} after {} re-searches, score {} in [{}, {}]",
-                            depth, windowWidenCount, bestScore, alpha, beta);
-                    }
                     searchComplete = true;
                 }
             } else {
@@ -151,25 +129,14 @@ std::optional<Move> MinimaxSearch::bestMove(Board& board, const RuleSet& rules, 
 
         // If we exhausted re-searches, do final full-window search
         if (!searchComplete) {
-            Logger::getInstance().warning("AI: Aspiration window failed {} times at depth {}, re-searching with full window",
-                windowWidenCount, depth);
-            long long nodesFallback = stats ? stats->nodes : 0;
             if (!runDepthWithWindow(depth, board, rules, toPlay, candidates, best, bestScore, pv, ctx, -search::INF, search::INF)) {
-                if (ctx.isTimeUp()) {
-                    Logger::getInstance().debug("AI: Time budget exceeded at depth {}", depth);
-                }
                 break;
             }
-            long long fallbackNodes = (stats ? stats->nodes : 0) - nodesFallback;
-            Logger::getInstance().debug("AI: Fallback full-window search used {} nodes", fallbackNodes);
         }
 
         // Finalize metadata for this iteration (counters already updated via ctx.recordNode())
         if (stats) {
             stats->finalize(start, depth, pv);
-            long long depthNodes = (stats->nodes - nodesBefore);
-            Logger::getInstance().debug("AI: Depth {} complete - score {}, {} total nodes this depth, PV length {}",
-                depth, bestScore, depthNodes, pv.size());
         }
     }
 depth_loop_end:
@@ -177,11 +144,6 @@ depth_loop_end:
     if (best) {
         // Final summary log with all statistics
         if (stats) {
-            long long nps = stats->timeMs > 0 ? (stats->nodes * 1000LL / stats->timeMs) : 0;
-            int ttHitRate = stats->nodes > 0 ? static_cast<int>(stats->ttHits * 100LL / stats->nodes) : 0;
-            Logger::getInstance().info("AI: Search complete - depth {}, {} nodes ({} qnodes, {} TT hits, {}% hit rate), score {}, {}ms ({} nps)",
-                stats->depthReached, stats->nodes, stats->qnodes, stats->ttHits, ttHitRate, bestScore, stats->timeMs, nps);
-
             // Log PV (first few moves)
             if (!pv.empty()) {
                 std::string pvStr;
@@ -193,13 +155,11 @@ depth_loop_end:
                 }
                 if (pv.size() > 5)
                     pvStr += " ...";
-                Logger::getInstance().info("AI: Principal Variation: {}", pvStr);
             }
         }
         return best;
     }
 
-    Logger::getInstance().warning("AI: Search returned no valid move");
     return returnEmpty();
 }
 
@@ -406,8 +366,6 @@ bool MinimaxSearch::runDepthWithWindow(int depth, Board& board, const RuleSet& r
     const bool ttHit = search::ttProbe(tt, board, depth, alpha, beta, ttScore, ttRootMove, ttFlag);
     if (ttHit) {
         ctx.recordTTHit();
-        Logger::getInstance().debug("AI: TT hit at root depth {} - score {}, move {}",
-            depth, ttScore, ttRootMove ? moveToString(*ttRootMove) : "none");
 
         // Ajuster alpha si on a une borne inférieure exploitable
         if (ttFlag == TranspositionTable::Flag::Lower || ttFlag == TranspositionTable::Flag::Exact) {
@@ -420,8 +378,6 @@ bool MinimaxSearch::runDepthWithWindow(int depth, Board& board, const RuleSet& r
 
     if (ordered.empty())
         return false;
-
-    Logger::getInstance().debug("AI: Exploring {} root candidates at depth {}", ordered.size(), depth);
 
     std::optional<Move> depthBest;
     int depthBestScore = -search::INF;
