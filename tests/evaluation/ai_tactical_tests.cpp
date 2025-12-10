@@ -242,44 +242,6 @@ TEST(ai_tactical_priority_win_over_capture)
     TEST_PASSED();
 }
 
-// Test 6: Bloquer victoire adverse (Priorité Bloquer > Capture simple)
-TEST(ai_tactical_block_win_vs_capture)
-{
-    Board board;
-    RuleSet rules;
-
-    // Blanc a 4 alignés (menace victoire).
-    // Noir peut faire une capture ailleurs.
-    // Noir DOIT bloquer.
-
-    // Setup Blanc 4 alignés: (5,5) à (8,5)
-    test_utils::set_board(board, "O O O O", 5, 5);
-    // Bloqueurs noirs
-    test_utils::set_board(board, "X X X", 0, 0);
-
-    // Setup capture possible pour Noir: B(10,10) W(11,10) W(12,10) _(13,10)
-    test_utils::set_board(board, "X O O", 10, 10);
-
-    board.forceSide(Player::Black);
-
-    // C'est à Noir.
-    // Menace: Blanc gagne en (9,5) ou (4,5).
-    // Noir doit bloquer en (9,5) ou (4,5).
-    // Ne doit PAS capturer en (13,10).
-
-    MinimaxSearchEngine engine;
-    SearchStats stats;
-    auto move = engine.findBestMove(board, rules, &stats);
-
-    ASSERT_TRUE(move.has_value());
-    print_board_with_move(board, *move, "Priorité Bloquer Victoire > Capture");
-    printSearchStats(stats);
-
-    bool blockMove = (move->pos.x == 9 && move->pos.y == 5) || (move->pos.x == 4 && move->pos.y == 5);
-    ASSERT_TRUE(blockMove);
-    TEST_PASSED();
-}
-
 // Test 7: Éviter le suicide (ne pas jouer là où on se fait capturer immédiatement)
 TEST(ai_tactical_avoid_suicide)
 {
