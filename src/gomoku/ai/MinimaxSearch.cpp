@@ -79,8 +79,10 @@ std::optional<Move> MinimaxSearch::bestMove(Board& board, const RuleSet& rules, 
     std::vector<Move> pv;
     int maxDepth = cfg.maxDepthHint;
     int bestScore = -search::INF;
+    int reachedDepth = 0;
 
     for (int depth = 1; depth <= maxDepth; ++depth) {
+        reachedDepth = depth;
         int alpha, beta;
         if (depth == 1)
             orderer_.clearForNewIteration(/*maxPly=*/64);
@@ -156,6 +158,7 @@ depth_loop_end:
                     pvStr += " ...";
             }
         }
+        LOG_INFO("Search finished. Depth reached: " + std::to_string(reachedDepth));
         return best;
     }
 
@@ -230,7 +233,8 @@ int MinimaxSearch::negamax(Board& board, int depth, int alpha, int beta, int ply
     std::vector<Move> bestPV;
     bool foundLegalMove = false;
 
-    for (const auto& m : moves) {
+    for (size_t i = 0; i < moves.size(); ++i) {
+        const auto& m = moves[i];
         auto pr = board.tryPlay(m, ctx.rules);
         if (!pr.success)
             continue;
@@ -244,11 +248,33 @@ int MinimaxSearch::negamax(Board& board, int depth, int alpha, int beta, int ply
             score = -negamax(board, depth - 1, -beta, -alpha, ply + 1, childPV, ctx);
         } else {
             // Coups suivants (Cut-nodes) : fenêtre nulle (Null Window Search)
-            // On parie que le coup ne va pas améliorer alpha
-            score = -negamax(board, depth - 1, -alpha - 1, -alpha, ply + 1, childPV, ctx);
 
-            // Si le pari est perdu (score > alpha), on doit refaire une recherche complète
-            // sauf si on a déjà causé un beta-cutoff
+            // Late Move Reduction (LMR)
+            int R = 0;
+            // Start LMR earlier (depth 2) and be more aggressive
+            if (depth >= 2 && i >= 3) {
+                R = 1;
+                if (depth >= 4 && i >= 8)
+                    R = 2;
+                if (depth >= 6 && i >= 15)
+                    R = 3;
+
+                // Ensure we don't drop below depth 0 (qsearch)
+                if (depth - 1 - R < 0)
+                    R = depth - 1;
+            }
+
+            // Recherche avec profondeur réduite (ou normale si R=0)
+            score = -negamax(board, depth - 1 - R, -alpha - 1, -alpha, ply + 1, childPV, ctx);
+
+            // Si LMR a échoué (le coup semble bon), on refait la recherche à pleine profondeur (toujours fenêtre nulle)
+            if (R > 0 && score > alpha) {
+                // Re-search only if the score is promising enough?
+                // For now, standard re-search
+                score = -negamax(board, depth - 1, -alpha - 1, -alpha, ply + 1, childPV, ctx);
+            }
+
+            // Si le pari fenêtre nulle est perdu (score > alpha), on doit refaire une recherche complète (fenêtre ouverte)
             if (score > alpha && score < beta) {
                 if (!ctx.isTimeUp()) {
                     childPV.clear();
