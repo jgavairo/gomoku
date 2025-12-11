@@ -1,6 +1,7 @@
 #include "gomoku/ai/MinimaxSearchEngine.hpp"
 #include "gomoku/core/Board.hpp"
 #include "gomoku/interfaces/IBoardView.hpp"
+#include <iostream>
 #include <stdexcept>
 
 namespace gomoku::ai {
@@ -90,10 +91,8 @@ SearchStats MinimaxSearchEngine::getLastSearchStats() const
 // Helper method to convert IBoardView to concrete Board
 gomoku::Board MinimaxSearchEngine::boardFromView(const IBoardView& view) const
 {
-    if (auto concreteBoard = dynamic_cast<const gomoku::Board*>(&view)) {
-        return *concreteBoard;
-    }
-    return gomoku::Board {}; // production fallback
+    const auto* concreteBoard = static_cast<const gomoku::Board*>(&view);
+    return *concreteBoard;
 }
 
 } // namespace gomoku::ai
