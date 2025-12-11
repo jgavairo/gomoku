@@ -16,7 +16,11 @@ SettingsScene::SettingsScene(Context& ctx)
     initButtons(pastelBtn_, "pastel_theme_button", { 1280, 580 }, 0.2f, [this]() { applyTheme("pastel"); });
     initButtons(backBtn_, "back_button", { 695, 730 }, 1.0f, [this]() { onBackClicked(); });
     initButtons(sfxToggleBtn_, "sound_on", { 1150, 340 }, 0.15f, [this]() { toggleSfx(); });
-    initButtons(musicToggleBtn_, "sound_off", { 1150, 460 }, 0.15f, [this]() { toggleMusic(); });
+    initButtons(musicToggleBtn_, "sound_on", { 1150, 460 }, 0.15f, [this]() { toggleMusic(); });
+    if (context_.resourceManager->hasTexture(context_.sfxEnabled ? ON_KEY : OFF_KEY))
+        sfxToggleBtn_.setTexture(&context_.resourceManager->getTexture(context_.sfxEnabled ? ON_KEY : OFF_KEY));
+    if (context_.resourceManager->hasTexture(context_.musicEnabled ? ON_KEY : OFF_KEY))
+        musicToggleBtn_.setTexture(&context_.resourceManager->getTexture(context_.musicEnabled ? ON_KEY : OFF_KEY));
 }
 
 void SettingsScene::update(sf::Time& deltaTime)
