@@ -71,6 +71,7 @@ std::vector<Move> MoveOrderer::order(Board& board,
     Player toMove,
     int depth,
     const std::optional<Move>& ttMove,
+    const eval::Evaluator& evaluator,
     const std::vector<Move>* baseMoves)
 {
     // 1) Seed
@@ -115,7 +116,7 @@ std::vector<Move> MoveOrderer::order(Board& board,
         } else {
             // CORRECTION: evaluate() retourne un score du point de vue du joueur passé
             // On veut le score de toMove, donc on passe toMove (pas board.toPlay() qui a changé!)
-            s = eval::evaluate(board, toMove);
+            s = evaluator.evaluate(board, toMove);
         }
         // History bonus - diviseur réduit pour impact fort
         ensureCapacity(1); // s'assure que history_ existe

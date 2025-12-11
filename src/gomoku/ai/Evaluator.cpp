@@ -78,7 +78,7 @@ namespace {
     }
 }
 
-int evaluate(const Board& board, Player perspective) noexcept
+int Evaluator::evaluate(const Board& board, Player perspective) const noexcept
 {
     // Safety: terminal states are handled by isTerminal() in search, but keep neutral for draws here.
     if (board.status() == GameStatus::Draw)
@@ -92,31 +92,26 @@ int evaluate(const Board& board, Player perspective) noexcept
     // 1) Captures differential (pairs). Each pair is valuable tactically.
     const auto caps = board.capturedPairs();
     const int capDiff = (perspective == Player::Black) ? (caps.black - caps.white) : (caps.white - caps.black);
-    constexpr int CAPTURE_PAIR_VALUE = 8000; // Increased to prioritize captures over closed fours (6000)
-    score += capDiff * CAPTURE_PAIR_VALUE;
+    score += capDiff * cfg_.capturePairValue;
 
     // 2) Centrality (manhattan distance to center). Encourages occupying the center early.
     constexpr int cx = BOARD_SIZE / 2;
     constexpr int cy = BOARD_SIZE / 2;
-    constexpr int CENTER_BASE = 10; // max shells counted
-    constexpr int CENTER_WEIGHT = 3; // per-shell weight multiplier
     int central = 0;
     const auto& occ = board.occupiedPositions();
     for (const auto& p : occ) {
         const Cell c = board.at(p.x, p.y);
         const int md = std::abs(static_cast<int>(p.x) - cx) + std::abs(static_cast<int>(p.y) - cy);
-        const int w = std::max(0, CENTER_BASE - md);
+        const int w = std::max(0, cfg_.centerBase - md);
         if (c == me)
             central += w;
         else if (c == opp)
             central -= w;
     }
-    score += central * CENTER_WEIGHT;
+    score += central * cfg_.centerWeight;
 
     // 2b) Front proximity: bias towards stones near the recent front (last 3 moves, weighted).
     {
-        constexpr int FRONT_BASE = 6; // radius-like shells
-        constexpr int FRONT_WEIGHT = 5; // final multiplier
         // Weights for last moves: most recent gets highest weight
         constexpr int W1 = 3, W2 = 2, W3 = 1; // sum = 6
         const auto recents = board.lastMoves(3);
@@ -131,10 +126,10 @@ int evaluate(const Board& board, Player perspective) noexcept
                 int frontLocal = 0;
                 for (const auto& p : occ) {
                     const int md = std::abs(static_cast<int>(p.x) - lx) + std::abs(static_cast<int>(p.y) - ly);
-                    if (md > FRONT_BASE)
+                    if (md > cfg_.frontBase)
                         continue;
                     const Cell c = board.at(p.x, p.y);
-                    const int w = FRONT_BASE - md;
+                    const int w = cfg_.frontBase - md;
                     if (c == me)
                         frontLocal += w;
                     else if (c == opp)
@@ -143,31 +138,31 @@ int evaluate(const Board& board, Player perspective) noexcept
                 frontAccum += frontLocal * wMove;
             }
             // Divide by sum of move weights (6) to get an average-like effect
-            score += (frontAccum / (W1 + W2 + W3)) * FRONT_WEIGHT;
+            score += (frontAccum / (W1 + W2 + W3)) * cfg_.frontWeight;
         }
     }
 
     // 3) Pattern runs in 4 directions (open/closed 2/3/4, 5+).
     // Enhanced with freedom and potential win assessment
-    auto runValue = [](int len, int openEnds, Freedom freedom, bool canWin) -> int {
+    auto runValue = [&](int len, int openEnds, Freedom freedom, bool canWin) -> int {
         if (len >= 5)
-            return 100000; // effectively winning pattern (search should catch terminal earlier)
+            return cfg_.winValue; // effectively winning pattern (search should catch terminal earlier)
 
         // Base values for alignments
         int baseValue = 0;
         switch (len) {
         case 4:
-            baseValue = (openEnds >= 2) ? 40000 : 6000;
+            baseValue = (openEnds >= 2) ? cfg_.openFour : cfg_.closedFour;
             break;
         case 3:
-            baseValue = (openEnds >= 2) ? 3000 : 500;
+            baseValue = (openEnds >= 2) ? cfg_.openThree : cfg_.closedThree;
             break;
         case 2:
-            baseValue = (openEnds >= 2) ? 200 : 50;
+            baseValue = (openEnds >= 2) ? cfg_.openTwo : cfg_.closedTwo;
             break;
         case 1:
         default:
-            baseValue = (openEnds >= 2) ? 20 : 5;
+            baseValue = (openEnds >= 2) ? cfg_.openOne : cfg_.closedOne;
             break;
         }
 
@@ -264,7 +259,7 @@ int evaluate(const Board& board, Player perspective) noexcept
 
                 if (splitTotal >= 4) {
                     // Equivalent to a closed four (one winning spot in the gap)
-                    splitVal = 8000;
+                    splitVal = cfg_.capturePairValue;
                     threats[1]++; // closed_four
                 } else if (splitTotal == 3) {
                     // Check if the far end is open
@@ -293,9 +288,9 @@ int evaluate(const Board& board, Player perspective) noexcept
 
             // Check for capture patterns (X_OOX)
             if (c == me && hasCapturePattern(board, x, y, dx, dy, me, opp)) {
-                potentialCaptureScore += 400; // Bonus for potential capture setup
+                potentialCaptureScore += cfg_.captureSetupBonus; // Bonus for potential capture setup
             } else if (c == opp && hasCapturePattern(board, x, y, dx, dy, opp, me)) {
-                potentialCaptureScore -= 600; // Penalty if opponent has capture setup
+                potentialCaptureScore -= cfg_.captureSetupPenalty; // Penalty if opponent has capture setup
             }
 
             // Classify threat for strategic combinations
@@ -318,33 +313,33 @@ int evaluate(const Board& board, Player perspective) noexcept
 
     // Double open-four: instant win threat
     if (myThreats[0] >= 2)
-        figureBonus += 50000;
+        figureBonus += cfg_.doubleOpenFour;
     if (oppThreats[0] >= 2)
-        figureBonus -= 50000;
+        figureBonus -= cfg_.doubleOpenFour;
 
     // Open-four + open-three: very strong
     if (myThreats[0] >= 1 && myThreats[2] >= 1)
-        figureBonus += 20000;
+        figureBonus += cfg_.openFourThree;
     if (oppThreats[0] >= 1 && oppThreats[2] >= 1)
-        figureBonus -= 20000;
+        figureBonus -= cfg_.openFourThree;
 
     // Double open-three: strong fork
     if (myThreats[2] >= 2)
-        figureBonus += 12000;
+        figureBonus += cfg_.doubleOpenThree;
     if (oppThreats[2] >= 2)
-        figureBonus -= 12000;
+        figureBonus -= cfg_.doubleOpenThree;
 
     // Open-three + closed-four: forcing sequence
     if (myThreats[0] >= 1 && myThreats[3] >= 1)
-        figureBonus += 5000;
+        figureBonus += cfg_.openThreeClosedFour;
     if (oppThreats[0] >= 1 && oppThreats[3] >= 1)
-        figureBonus -= 5000;
+        figureBonus -= cfg_.openThreeClosedFour;
 
     // Multiple open-threes (3+): overwhelming position
     if (myThreats[2] >= 3)
-        figureBonus += 15000;
+        figureBonus += cfg_.tripleOpenThree;
     if (oppThreats[2] >= 3)
-        figureBonus -= 15000;
+        figureBonus -= cfg_.tripleOpenThree;
 
     score += figureBonus;
 

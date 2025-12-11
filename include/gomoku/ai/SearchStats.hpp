@@ -36,6 +36,7 @@ struct SearchStats {
     long long nodes = 0;
     long long qnodes = 0;
     int ttHits = 0;
+    int maxDepth = 0; // Real max depth reached (including qsearch)
 
     // Metadata set at end of iteration (via finalize())
     int depthReached = 0;

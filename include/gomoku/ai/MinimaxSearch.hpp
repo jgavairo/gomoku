@@ -1,4 +1,5 @@
 #pragma once
+#include "gomoku/ai/Evaluator.hpp"
 #include "gomoku/ai/MoveOrderer.hpp"
 #include "gomoku/ai/SearchStats.hpp"
 #include "gomoku/ai/TranspositionTable.hpp"
@@ -22,11 +23,19 @@ struct SearchConfig {
     bool useAspirationWindows = true; // Enable/disable aspiration windows
     int aspirationDelta = 400; // Fenêtre plus étroite pour forcer plus de re-recherches précises
     int aspirationWidenFactor = 6; // Élargissement plus modéré
+    int aspirationDepthThreshold = 5; // Profondeur min pour activer l'aspiration
+    int maxReSearches = 2; // Max tentatives de ré-élargissement avant full window
+
+    // LMR (Late Move Reduction) parameters
+    bool useLMR = true;
+    int lmrMinDepth = 2; // Profondeur min pour activer LMR
+    int lmrMinMoveIndex = 3; // Index de coup min pour activer LMR
 };
 class MinimaxSearch {
 public:
-    explicit MinimaxSearch(const SearchConfig& conf)
+    explicit MinimaxSearch(const SearchConfig& conf, const eval::EvalConfig& evalConf = {})
         : cfg(conf)
+        , evaluator_(evalConf)
     {
         tt.resizeBytes(cfg.ttBytes); // Initialize TT with configured size
     }
@@ -36,6 +45,7 @@ public:
     // Configuration helpers used by MinimaxSearchEngine
     void setTimeBudgetMs(int ms) { cfg.timeBudgetMs = ms; }
     void setMaxDepthHint(int d) { cfg.maxDepthHint = d; }
+    void setEvalConfig(const eval::EvalConfig& ec) { evaluator_.setConfig(ec); }
 
     void setTranspositionTableSize(std::size_t bytes)
     {
@@ -81,6 +91,7 @@ private:
     SearchConfig cfg {};
     TranspositionTable tt;
     MoveOrderer orderer_ { MoveOrdererConfig {} };
+    eval::Evaluator evaluator_;
 };
 
 } // namespace gomoku

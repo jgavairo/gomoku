@@ -88,7 +88,7 @@ std::optional<Move> MinimaxSearch::bestMove(Board& board, const RuleSet& rules, 
             orderer_.clearForNewIteration(/*maxPly=*/64);
         // First few iterations or aspiration disabled: use full window
         // Aspiration windows are more effective at deeper depths when the tree is more stable
-        if (depth <= 5 || !cfg.useAspirationWindows) {
+        if (depth <= cfg.aspirationDepthThreshold || !cfg.useAspirationWindows) {
             alpha = -search::INF;
             beta = search::INF;
         } else {
@@ -99,7 +99,7 @@ std::optional<Move> MinimaxSearch::bestMove(Board& board, const RuleSet& rules, 
 
         bool searchComplete = false;
         int windowWidenCount = 0;
-        const int maxReSearches = 2; // Limit re-searches (reduced from 3 to avoid wasted time)
+        const int maxReSearches = cfg.maxReSearches; // Limit re-searches
 
         // Aspiration window re-search loop
         while (!searchComplete && windowWidenCount < maxReSearches) {
@@ -158,7 +158,7 @@ depth_loop_end:
                     pvStr += " ...";
             }
         }
-        LOG_INFO("Search finished. Depth reached: " + std::to_string(reachedDepth));
+        LOG_INFO("Search finished. Depth reached: " + std::to_string(reachedDepth) + " (Max: " + std::to_string(stats ? stats->maxDepth : 0) + ")");
         return best;
     }
 
@@ -167,7 +167,7 @@ depth_loop_end:
 
 int MinimaxSearch::evaluatePublic(const Board& board, Player perspective) const
 {
-    return eval::evaluate(board, perspective);
+    return evaluator_.evaluate(board, perspective);
 }
 
 std::vector<Move> MinimaxSearch::orderedMovesPublic(const Board& board, const RuleSet& rules, Player toPlay) const
@@ -183,6 +183,10 @@ std::vector<Move> MinimaxSearch::orderedMovesPublic(const Board& board, const Ru
 // Architecture prête pour extensions: PVS, TT probe/store, extensions tactiques, LMR.
 int MinimaxSearch::negamax(Board& board, int depth, int alpha, int beta, int ply, std::vector<Move>& pvOut, const SearchContext& ctx)
 {
+    if (ctx.stats && ply > ctx.stats->maxDepth) {
+        ctx.stats->maxDepth = ply;
+    }
+
     int alpha0 = alpha, beta0 = beta;
     pvOut.clear();
 
@@ -191,11 +195,11 @@ int MinimaxSearch::negamax(Board& board, int depth, int alpha, int beta, int ply
 
     // 1) Check time budget
     if (ctx.isTimeUp())
-        return eval::evaluate(board, board.toPlay());
+        return evaluator_.evaluate(board, board.toPlay());
 
     // 2) Check node cap (hard limit)
     if (ctx.nodeCap > 0 && ctx.stats && ctx.stats->nodes >= static_cast<long long>(ctx.nodeCap))
-        return eval::evaluate(board, board.toPlay());
+        return evaluator_.evaluate(board, board.toPlay());
 
     // 3) Terminal check (win/loss/draw)
     int terminalScore = 0;
@@ -222,11 +226,11 @@ int MinimaxSearch::negamax(Board& board, int depth, int alpha, int beta, int ply
 
     // 6) Generate and order moves
     Player toMove = board.toPlay();
-    auto moves = orderer_.order(board, ctx.rules, toMove, depth, ttMove);
+    auto moves = orderer_.order(board, ctx.rules, toMove, depth, ttMove, evaluator_);
 
     // No legal moves: should not happen if terminal check is correct, but handle gracefully
     if (moves.empty())
-        return eval::evaluate(board, toMove);
+        return evaluator_.evaluate(board, toMove);
 
     // 7) Alpha-beta search through child nodes
     int bestScore = -search::INF;
@@ -252,7 +256,7 @@ int MinimaxSearch::negamax(Board& board, int depth, int alpha, int beta, int ply
             // Late Move Reduction (LMR)
             int R = 0;
             // Start LMR earlier (depth 2) and be more aggressive
-            if (depth >= 2 && i >= 3) {
+            if (cfg.useLMR && depth >= cfg.lmrMinDepth && i >= static_cast<size_t>(cfg.lmrMinMoveIndex)) {
                 R = 1;
                 if (depth >= 4 && i >= 8)
                     R = 2;
@@ -313,7 +317,7 @@ int MinimaxSearch::negamax(Board& board, int depth, int alpha, int beta, int ply
 
     // Si aucun coup légal trouvé, retourner évaluation statique
     if (!foundLegalMove) {
-        return eval::evaluate(board, board.toPlay());
+        return evaluator_.evaluate(board, board.toPlay());
     }
     // 8) TT store: save this position for future lookup
     // Determine the bound type based on alpha-beta window
@@ -347,6 +351,10 @@ int MinimaxSearch::negamax(Board& board, int depth, int alpha, int beta, int ply
 //  - Évite d’explorer des coups calmes qui n’affectent pas les menaces en cours.
 int MinimaxSearch::qsearch(Board& board, int alpha, int beta, int ply, const SearchContext& ctx)
 {
+    if (ctx.stats && ply > ctx.stats->maxDepth) {
+        ctx.stats->maxDepth = ply;
+    }
+
     ctx.recordQNode();
 
     // Check for terminal positions first
@@ -356,7 +364,7 @@ int MinimaxSearch::qsearch(Board& board, int alpha, int beta, int ply, const Sea
 
     // Stand-pat: évaluation statique de la position
     Player toMove = board.toPlay();
-    int standPat = eval::evaluate(board, toMove);
+    int standPat = evaluator_.evaluate(board, toMove);
 
     // Beta cutoff sur stand-pat (position déjà trop bonne)
     if (standPat >= beta)
@@ -422,7 +430,7 @@ bool MinimaxSearch::runDepthWithWindow(int depth, Board& board, const RuleSet& r
     }
 
     // IMPORTANT: réordonner la liste fournie, ne pas regénérer
-    auto ordered = orderer_.order(board, rules, toPlay, depth, ttRootMove, &rootCandidates);
+    auto ordered = orderer_.order(board, rules, toPlay, depth, ttRootMove, evaluator_, &rootCandidates);
 
     if (ordered.empty())
         return false;

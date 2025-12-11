@@ -1,4 +1,5 @@
 #pragma once
+#include "gomoku/ai/Evaluator.hpp"
 #include "gomoku/core/Board.hpp"
 #include "gomoku/core/Types.hpp" // Move, Player, Pos, BOARD_SIZE...
 #include <cstdint>
@@ -31,6 +32,7 @@ public:
         Player toMove,
         int depth,
         const std::optional<Move>& ttMove,
+        const eval::Evaluator& evaluator,
         const std::vector<Move>* baseMoves = nullptr);
 
     // Hooks heuristiques (à appeler depuis la recherche) :
