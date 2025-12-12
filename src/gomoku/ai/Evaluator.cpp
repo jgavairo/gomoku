@@ -329,6 +329,18 @@ int Evaluator::evaluate(const Board& board, Player perspective) const noexcept
     if (oppThreats[2] >= 2)
         figureBonus -= cfg_.doubleOpenThree;
 
+    // Mixed Double Three (Open + Closed): Strong attack
+    if (myThreats[2] >= 1 && myThreats[3] >= 1)
+        figureBonus += (cfg_.doubleOpenThree * 9) / 10;
+    if (oppThreats[2] >= 1 && oppThreats[3] >= 1)
+        figureBonus -= (cfg_.doubleOpenThree * 9) / 10;
+
+    // Double Closed Three: Moderate pressure
+    if (myThreats[3] >= 2)
+        figureBonus += (cfg_.doubleOpenThree * 6) / 10;
+    if (oppThreats[3] >= 2)
+        figureBonus -= (cfg_.doubleOpenThree * 6) / 10;
+
     // Open-three + closed-four: forcing sequence
     if (myThreats[0] >= 1 && myThreats[3] >= 1)
         figureBonus += cfg_.openThreeClosedFour;

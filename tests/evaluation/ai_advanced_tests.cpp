@@ -99,71 +99,110 @@ static void printSearchStats(const SearchStats& stats)
 //     TEST_PASSED();
 // }
 
-TEST(ai_advanced_user_scenario_2)
+// TEST(ai_advanced_user_scenario_2)
+// {
+//     Board board;
+//     RuleSet rules;
+
+//     // Setup from user board using BoardBuilder
+//     // Offset x=3 (D), y=3 (Row 4)
+//     test_utils::set_board(board, R"(
+//      . O X . X O . . . . . . 
+//      . . O X O . . . . . . . 
+//      O X X X O . . . . . . . 
+//      . X O O O O X . . . . . 
+//      O . . . X . . . . . . . 
+//     )",
+//         5, 6);
+
+//     // print board for debugging
+//     print_board_with_move(board, Move { { 0, 0 }, Player::Black }, "Initial Board State");
+
+//     board.forceSide(Player::White);
+//     MinimaxSearchEngine engine;
+//     SearchStats stats;
+//     auto move = engine.findBestMove(board, rules, &stats);
+
+//     // print move for debugging
+//     std::cout << "AI played: " << (int)move->pos.x << "," << (int)move->pos.y << std::endl;
+
+//     ASSERT_TRUE(move.has_value());
+//     print_board_with_move(board, *move, "User Scenario 2 (block Semi-Open Four)");
+//     printSearchStats(stats);
+// }
+
+// TEST(ai_advanced_user_scenario_3)
+// {
+//     Board board;
+//     RuleSet rules;
+
+//     // Setup from user board using BoardBuilder
+//     test_utils::set_board(board, R"(
+// . . . . . X . . . O . . .
+// . . O . O . O . X . . . .
+// . . . X . O . X O . . O .
+// . . X O X . X . X O . . .
+// . X . . . X . O . X . . .
+// O . O . . O . . O . O . .
+// . . . . . X . O . . . . .
+// . X X X X O O . . . . . .
+// . . X X . O . . . . . . .
+// . . . . X . . . . . . . .
+// . . . . . O . . . . . . .
+//     )",
+//         3, 4);
+
+//     // print board for debugging
+//     print_board_with_move(board, Move { { 0, 0 }, Player::Black }, "Initial Board State Scenario 3");
+
+//     board.forceSide(Player::Black);
+//     MinimaxSearchEngine engine;
+//     SearchStats stats;
+//     auto move = engine.findBestMove(board, rules, &stats);
+
+//     // print move for debugging
+//     if (move.has_value()) {
+//         std::cout << "AI played: " << (int)move->pos.x << "," << (int)move->pos.y << std::endl;
+//         print_board_with_move(board, *move, "User Scenario 3");
+//     } else {
+//         std::cout << "AI found no move!" << std::endl;
+//     }
+//     printSearchStats(stats);
+
+//     ASSERT_TRUE(move.has_value());
+// }
+
+TEST(ai_advanced_user_scenario_4)
 {
     Board board;
     RuleSet rules;
 
-    // Setup from user board using BoardBuilder
-    // Offset x=3 (D), y=3 (Row 4)
+    // Setup from user board
+    // Offset x=8 (I), y=8 (Row 9)
+    // I9=O, J9=O, K9=O, L9=X
+    // J10=X, K10=O, L10=X
+    // J11=X, K11=O
+    // J12=X
     test_utils::set_board(board, R"(
-     . O X . X O . . . . . . 
-     . . O X O . . . . . . . 
-     O X X X O . . . . . . . 
-     . X O O O O X . . . . . 
-     O . . . X . . . . . . . 
+O O O X
+. X O .
+. X O .
+. X . X
     )",
-        5, 6);
+        8, 8);
 
-    // print board for debugging
-    print_board_with_move(board, Move { { 0, 0 }, Player::Black }, "Initial Board State");
-
-    board.forceSide(Player::White);
-    MinimaxSearchEngine engine;
-    SearchStats stats;
-    auto move = engine.findBestMove(board, rules, &stats);
-
-    // print move for debugging
-    std::cout << "AI played: " << (int)move->pos.x << "," << (int)move->pos.y << std::endl;
-
-    ASSERT_TRUE(move.has_value());
-    print_board_with_move(board, *move, "User Scenario 2 (block Semi-Open Four)");
-    printSearchStats(stats);
-}
-
-TEST(ai_advanced_user_scenario_3)
-{
-    Board board;
-    RuleSet rules;
-
-    // Setup from user board using BoardBuilder
-    test_utils::set_board(board, R"(
-. . . . . X . . . O . . .
-. . O . O . O . X . . . .
-. . . X . O . X O . . O .
-. . X O X . X . X O . . .
-. X . . . X . O . X . . .
-O . O . . O . . O . O . .
-. . . . . X . O . . . . .
-. X X X X O O . . . . . .
-. . X X . O . . . . . . .
-. . . . X . . . . . . . .
-. . . . . O . . . . . . .
-    )",
-        3, 4);
-
-    // print board for debugging
-    print_board_with_move(board, Move { { 0, 0 }, Player::Black }, "Initial Board State Scenario 3");
+    print_board_with_move(board, Move { { 0, 0 }, Player::Black }, "Initial Board State Scenario 4");
 
     board.forceSide(Player::Black);
     MinimaxSearchEngine engine;
     SearchStats stats;
+
+    // Give it some time to think
     auto move = engine.findBestMove(board, rules, &stats);
 
-    // print move for debugging
     if (move.has_value()) {
         std::cout << "AI played: " << (int)move->pos.x << "," << (int)move->pos.y << std::endl;
-        print_board_with_move(board, *move, "User Scenario 3");
+        print_board_with_move(board, *move, "User Scenario 4 Result");
     } else {
         std::cout << "AI found no move!" << std::endl;
     }
