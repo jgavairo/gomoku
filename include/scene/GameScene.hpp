@@ -20,7 +20,7 @@ public:
     void onThemeChanged() override;
 
 private:
-    void onBackClicked();
+    void onQuitGameClicked();
     void onHintClicked();
     void onUndoClicked();
 
@@ -39,7 +39,7 @@ private:
 
 
     bool vsAi_;
-    gomoku::ui::Button backButton_;
+    gomoku::ui::Button quitGameButton_;
     gomoku::ui::Button hintButton_;
     gomoku::ui::Button undoButton_;
     gomoku::gui::GameBoardRenderer boardRenderer_;

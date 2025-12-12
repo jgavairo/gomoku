@@ -63,6 +63,8 @@ bool ResourceManager::init()
         return false;
     if (!loadTexture("undo", texturePath_ + "ui/undo_button.png"))
         return false;
+    if (!loadTexture("quit_game_button", texturePath_ + "ui/quit_game_button.png"))
+        return false;
 
 
     setAudioPackage("default");
@@ -89,6 +91,7 @@ bool ResourceManager::setTexturePackage(const std::string& theme)
         {"pawn_hint", "helperPawn.png"},
         {"hint_button", "ui/help_button.png"},
         {"play_button", "ui/play_button.png"},
+        {"quit_game_button", "ui/quit_game_button.png"},
         {"settings_button", "ui/settings_button.png"},
         {"exit_button", "ui/exit_button.png"},
         {"vs_player_button", "ui/vs_player_button.png"},
@@ -205,6 +208,7 @@ const sf::SoundBuffer* ResourceManager::getSound(const std::string& name) const
         return nullptr;
     return &it->second;
 }
+
 
 bool ResourceManager::setAudioPackage(const std::string& theme)
 {

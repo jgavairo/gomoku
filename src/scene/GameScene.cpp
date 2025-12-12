@@ -13,11 +13,11 @@ GameScene::GameScene(Context& context, bool vsAi)
     , gameSession_(gomoku::SessionController())
 {
     // Initialisation du bouton Back
-    initButtons(backButton_, "back_button", { 100, 820 }, 1.0f, [this]() { onBackClicked(); });
+    initButtons(quitGameButton_, "quit_game_button", { 50, 900 }, 0.5f, [this]() { onQuitGameClicked(); });
 
-    initButtons(hintButton_, "hint_button", { 1780, 880 }, 0.1f, [this]() { onHintClicked(); });
+    initButtons(hintButton_, "hint_button", { 1780, 50 }, 0.075f, [this]() { onHintClicked(); });
 
-    initButtons(undoButton_, "undo", { 1780, 780 }, 0.09f, [this]() { onUndoClicked(); });
+    initButtons(undoButton_, "undo", { 1780, 150 }, 0.125f, [this]() { onUndoClicked(); });
 
     // Initialisation du renderer de plateau
     if (context_.resourceManager) {
@@ -90,7 +90,7 @@ void GameScene::onThemeChanged()
 
 bool GameScene::handleInput(sf::Event& event)
 {
-    if (context_.window && backButton_.handleInput(event, *context_.window))
+    if (context_.window && quitGameButton_.handleInput(event, *context_.window))
         return true;
 
     if (context_.window && hintButton_.handleInput(event, *context_.window))
@@ -98,9 +98,7 @@ bool GameScene::handleInput(sf::Event& event)
 
     if (context_.window && undoButton_.handleInput(event, *context_.window))
         return true;
-
-    // Prévisualisation temporairement désactivée pour debug
-
+        
     // Placement des pions sur clic souris
     if (context_.window && event.type == sf::Event::MouseMoved) {
         const auto size = context_.window->getSize();
@@ -231,7 +229,7 @@ bool GameScene::handleInput(sf::Event& event)
 
 void GameScene::update(sf::Time& deltaTime)
 {
-    backButton_.update(deltaTime);
+    quitGameButton_.update(deltaTime);
     hintButton_.update(deltaTime);
     undoButton_.update(deltaTime);
 
@@ -322,7 +320,7 @@ void GameScene::render(sf::RenderTarget& target) const
         hov.setColor(old);
     }
     // UI
-    backButton_.render(target);
+    quitGameButton_.render(target);
     hintButton_.render(target);
     undoButton_.render(target);
     // HUD: toPlay, captures, last move, AI time
@@ -385,6 +383,8 @@ void GameScene::render(sf::RenderTarget& target) const
 void GameScene::onUndoClicked()
 {
     if (vsAi_) {
+        if (gameSession_.snapshot().moveCount < 2)
+            return;
         std::cout << "Undo clicked" << std::endl;
         gameSession_.undo(2);
         hintEnabled_ = false;
@@ -397,8 +397,13 @@ void GameScene::onUndoClicked()
     }
 }
 
-void GameScene::onBackClicked()
+void GameScene::onQuitGameClicked()
 {
+    //Save plateau si game non finie WAITING FIX
+    //
+    //
+    //
+    printf("on Quit Game Clicked\n");
     context_.inGame = false;
     context_.showMainMenu = true;
     std::string musicPath = std::string("assets/audio/") + context_.theme + "/menu_theme.ogg";
