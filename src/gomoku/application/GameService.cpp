@@ -108,6 +108,39 @@ bool GameService::redo()
     return success;
 }
 
+std::vector<uint8_t> GameService::saveGame() const
+{
+    return board_->save();
+}
+
+bool GameService::loadGame(const std::vector<uint8_t>& data)
+{
+    // Load board state
+    if (!board_->load(data, rules_)) {
+        return false;
+    }
+
+    // Reconstruct moveHistory_ from board's history
+    // Board::load replays moves, so board's history is correct.
+    // We need to sync GameService's moveHistory_ (which is just vector<Move>)
+    moveHistory_.clear();
+    // Board doesn't expose full history directly as vector<Move>, but we can get it via lastMoves
+    // or we can iterate.
+    // Actually, Board::moveHistory is private.
+    // But we can use Board::lastMoves(N) where N is moveCount.
+    int count = board_->moveCount();
+    if (count > 0) {
+        auto moves = board_->lastMoves(count);
+        // lastMoves returns most recent first. We want chronological order.
+        moveHistory_.reserve(count);
+        for (auto it = moves.rbegin(); it != moves.rend(); ++it) {
+            moveHistory_.push_back(*it);
+        }
+    }
+
+    return true;
+}
+
 const IBoardView& GameService::getBoard() const
 {
     return *board_;

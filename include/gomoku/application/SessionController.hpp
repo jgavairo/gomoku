@@ -48,6 +48,10 @@ public:
     bool redo(int halfMoves = 1); // redo half-moves
     void reset(Player start = Player::Black);
 
+    // Persistence
+    std::vector<uint8_t> save() const;
+    bool load(const std::vector<uint8_t>& data);
+
     // Utilities
     GamePlayResult hint(int timeMs = 500) const;
 

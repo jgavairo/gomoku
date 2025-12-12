@@ -33,6 +33,9 @@ public:
     bool canRedo() const override;
     bool redo() override;
 
+    std::vector<uint8_t> saveGame() const override;
+    bool loadGame(const std::vector<uint8_t>& data) override;
+
     const IBoardView& getBoard() const override;
     std::vector<Move> getLegalMoves() const override;
 

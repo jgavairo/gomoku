@@ -30,6 +30,10 @@ public:
     virtual bool canRedo() const = 0;
     virtual bool redo() = 0;
 
+    // Persistence
+    virtual std::vector<uint8_t> saveGame() const = 0;
+    virtual bool loadGame(const std::vector<uint8_t>& data) = 0;
+
     // Board access
     virtual const IBoardView& getBoard() const = 0;
     virtual std::vector<Move> getLegalMoves() const = 0;

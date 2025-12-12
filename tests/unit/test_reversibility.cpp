@@ -401,3 +401,45 @@ TEST(true_redo_functionality)
     
     TEST_PASSED();
 }
+
+// Test 7.14: Save and Load functionality
+TEST(save_load_functionality)
+{
+    Board board;
+    RuleSet rules;
+
+    // Play some moves
+    board.tryPlay(Move { Pos { 9, 9 }, Player::Black }, rules);
+    board.tryPlay(Move { Pos { 10, 9 }, Player::White }, rules);
+    board.tryPlay(Move { Pos { 9, 10 }, Player::Black }, rules);
+    
+    // Undo one move to populate redo history
+    board.undo(); // Undo (9, 10)
+
+    uint64_t hashBefore = board.zobristKey();
+    int movesBefore = board.moveCount();
+
+    // Save
+    std::vector<uint8_t> data = board.save();
+    ASSERT_FALSE(data.empty());
+
+    // Create new board and load
+    Board board2;
+    bool loadSuccess = board2.load(data, rules);
+    ASSERT_TRUE(loadSuccess);
+
+    // Verify state
+    ASSERT_EQ(board2.zobristKey(), hashBefore);
+    ASSERT_EQ(board2.moveCount(), movesBefore);
+    ASSERT_EQ(board2.at(9, 9), Cell::Black);
+    ASSERT_EQ(board2.at(10, 9), Cell::White);
+    ASSERT_EQ(board2.at(9, 10), Cell::Empty);
+
+    // Verify Redo works on loaded board
+    ASSERT_TRUE(board2.canRedo());
+    bool redoSuccess = board2.redo(rules);
+    ASSERT_TRUE(redoSuccess);
+    ASSERT_EQ(board2.at(9, 10), Cell::Black);
+    
+    TEST_PASSED();
+}

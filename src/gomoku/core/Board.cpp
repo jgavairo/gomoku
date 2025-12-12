@@ -321,6 +321,115 @@ bool Board::redo(const RuleSet& rules)
 }
 
 // ------------------------------------------------
+// Persistence
+// Format:
+// [4 bytes] MoveHistory Count (N)
+// [N * 3 bytes] Moves (x, y, player)
+// [4 bytes] RedoHistory Count (M)
+// [M * 3 bytes] Moves (x, y, player)
+
+std::vector<uint8_t> Board::save() const
+{
+    std::vector<uint8_t> buffer;
+    // Estimate size: 4 + N*3 + 4 + M*3
+    size_t estSize = 8 + moveHistory.size() * 3 + redoHistory.size() * 3;
+    buffer.reserve(estSize);
+
+    auto pushInt = [&](uint32_t val) {
+        buffer.push_back(static_cast<uint8_t>((val >> 0) & 0xFF));
+        buffer.push_back(static_cast<uint8_t>((val >> 8) & 0xFF));
+        buffer.push_back(static_cast<uint8_t>((val >> 16) & 0xFF));
+        buffer.push_back(static_cast<uint8_t>((val >> 24) & 0xFF));
+    };
+
+    auto pushMove = [&](const Move& m) {
+        buffer.push_back(m.pos.x);
+        buffer.push_back(m.pos.y);
+        buffer.push_back(static_cast<uint8_t>(m.by));
+    };
+
+    // 1. Move History
+    pushInt(static_cast<uint32_t>(moveHistory.size()));
+    for (const auto& entry : moveHistory) {
+        pushMove(entry.move);
+    }
+
+    // 2. Redo History
+    pushInt(static_cast<uint32_t>(redoHistory.size()));
+    for (const auto& m : redoHistory) {
+        pushMove(m);
+    }
+
+    return buffer;
+}
+
+bool Board::load(const std::vector<uint8_t>& data, const RuleSet& rules)
+{
+    if (data.size() < 4)
+        return false;
+
+    size_t offset = 0;
+    auto readInt = [&]() -> uint32_t {
+        if (offset + 4 > data.size())
+            return 0; // Should handle error better
+        uint32_t val = 0;
+        val |= static_cast<uint32_t>(data[offset + 0]) << 0;
+        val |= static_cast<uint32_t>(data[offset + 1]) << 8;
+        val |= static_cast<uint32_t>(data[offset + 2]) << 16;
+        val |= static_cast<uint32_t>(data[offset + 3]) << 24;
+        offset += 4;
+        return val;
+    };
+
+    auto readMove = [&]() -> std::optional<Move> {
+        if (offset + 3 > data.size())
+            return std::nullopt;
+        uint8_t x = data[offset++];
+        uint8_t y = data[offset++];
+        uint8_t pVal = data[offset++];
+        return Move { Pos { x, y }, static_cast<Player>(pVal) };
+    };
+
+    // Reset current state
+    reset();
+
+    // 1. Load Move History
+    uint32_t moveCount = readInt();
+    for (uint32_t i = 0; i < moveCount; ++i) {
+        auto mOpt = readMove();
+        if (!mOpt)
+            return false; // Truncated data
+
+        // Replay move
+        // Note: applyCore clears redoHistory if clearRedo=true.
+        // We want to keep redoHistory empty until we finish loading moves,
+        // then we load redoHistory. So clearRedo=true is fine (and safer).
+        PlayResult pr = applyCore(*mOpt, rules, true, true);
+        if (!pr.success) {
+            // If a move in history is invalid under current rules, load fails
+            reset();
+            return false;
+        }
+    }
+
+    // 2. Load Redo History
+    if (offset + 4 > data.size()) {
+        // It's possible data ends here if saved with older version?
+        // But we just implemented it. Assume strict format.
+        return false;
+    }
+    uint32_t redoCount = readInt();
+    for (uint32_t i = 0; i < redoCount; ++i) {
+        auto mOpt = readMove();
+        if (!mOpt)
+            return false;
+        redoHistory.push_back(*mOpt);
+    }
+
+    return true;
+}
+
+// ------------------------------------------------
 std::vector<Move> Board::legalMoves(Player p, const RuleSet& rules) const
 {
     std::vector<Move> out;

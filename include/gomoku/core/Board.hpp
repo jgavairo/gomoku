@@ -52,6 +52,10 @@ public:
 
     bool speculativeTry(Move m, const RuleSet& rules, PlayResult* out);
 
+    // Persistence
+    std::vector<uint8_t> save() const;
+    bool load(const std::vector<uint8_t>& data, const RuleSet& rules);
+
     // Force player turn (for specific game setups)
     void forceSide(Player p);
 

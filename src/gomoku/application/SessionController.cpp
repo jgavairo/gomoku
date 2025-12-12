@@ -104,6 +104,24 @@ void SessionController::reset(Player start)
     last_.reset();
 }
 
+std::vector<uint8_t> SessionController::save() const
+{
+    return gameService_->saveGame();
+}
+
+bool SessionController::load(const std::vector<uint8_t>& data)
+{
+    bool ok = gameService_->loadGame(data);
+    if (ok) {
+        auto m = gameService_->getBoard().lastMove();
+        if (m)
+            last_ = m->pos;
+        else
+            last_.reset();
+    }
+    return ok;
+}
+
 GamePlayResult SessionController::hint(int timeMs) const
 {
     SearchStats st {};
