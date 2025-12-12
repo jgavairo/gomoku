@@ -23,6 +23,7 @@ private:
     void onQuitGameClicked();
     void onHintClicked();
     void onUndoClicked();
+    void onRedoClicked();
 
     std::optional<gomoku::Pos> hintPos_;
     bool hintEnabled_ = false;
@@ -42,6 +43,7 @@ private:
     gomoku::ui::Button quitGameButton_;
     gomoku::ui::Button hintButton_;
     gomoku::ui::Button undoButton_;
+    gomoku::ui::Button redoButton_;
     gomoku::gui::GameBoardRenderer boardRenderer_;
     gomoku::SessionController gameSession_;
     gomoku::RuleSet rules_;

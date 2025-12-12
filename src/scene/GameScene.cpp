@@ -19,6 +19,8 @@ GameScene::GameScene(Context& context, bool vsAi)
 
     initButtons(undoButton_, "undo", { 1780, 150 }, 0.125f, [this]() { onUndoClicked(); });
 
+    initButtons(redoButton_, "redo", { 1780, 250 }, 0.125f, [this]() { onRedoClicked(); });
+
     // Initialisation du renderer de plateau
     if (context_.resourceManager) {
         boardRenderer_.setTextures(
@@ -97,6 +99,9 @@ bool GameScene::handleInput(sf::Event& event)
         return true;
 
     if (context_.window && undoButton_.handleInput(event, *context_.window))
+        return true;
+
+    if (context_.window && redoButton_.handleInput(event, *context_.window))
         return true;
         
     // Placement des pions sur clic souris
@@ -232,6 +237,7 @@ void GameScene::update(sf::Time& deltaTime)
     quitGameButton_.update(deltaTime);
     hintButton_.update(deltaTime);
     undoButton_.update(deltaTime);
+    redoButton_.update(deltaTime);
 
     // Run pending AI move only after at least one frame has been presented
     if (pendingAi_ && framePresented_) {
@@ -323,6 +329,7 @@ void GameScene::render(sf::RenderTarget& target) const
     quitGameButton_.render(target);
     hintButton_.render(target);
     undoButton_.render(target);
+    redoButton_.render(target);
     // HUD: toPlay, captures, last move, AI time
     auto snap = gameSession_.snapshot();
     if (fontOk_) {
@@ -385,16 +392,21 @@ void GameScene::onUndoClicked()
     if (vsAi_) {
         if (gameSession_.snapshot().moveCount < 2)
             return;
-        std::cout << "Undo clicked" << std::endl;
         gameSession_.undo(2);
-        hintEnabled_ = false;
-        hintPos_.reset();
-    } else if (!vsAi_) {
-        std::cout << "Undo clicked" << std::endl;
+    } else if (!vsAi_)
         gameSession_.undo(1);
-        hintEnabled_ = false;
-        hintPos_.reset();
-    }
+    hintEnabled_ = false;
+    hintPos_.reset();
+}
+
+void GameScene::onRedoClicked()
+{
+    if (vsAi_)
+        gameSession_.redo(2);
+    else if (!vsAi_)
+        gameSession_.redo(1);
+    hintEnabled_ = false;
+    hintPos_.reset();
 }
 
 void GameScene::onQuitGameClicked()

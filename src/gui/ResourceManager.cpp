@@ -63,6 +63,8 @@ bool ResourceManager::init()
         return false;
     if (!loadTexture("undo", texturePath_ + "ui/undo_button.png"))
         return false;
+    if (!loadTexture("redo", texturePath_ + "ui/redo_button.png"))
+        return false;
     if (!loadTexture("quit_game_button", texturePath_ + "ui/quit_game_button.png"))
         return false;
 
