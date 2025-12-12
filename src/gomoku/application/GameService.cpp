@@ -87,6 +87,27 @@ bool GameService::undo()
     return success;
 }
 
+bool GameService::canRedo() const
+{
+    return board_->canRedo();
+}
+
+bool GameService::redo()
+{
+    if (!canRedo()) {
+        return false;
+    }
+
+    bool success = board_->redo(rules_);
+    if (success) {
+        auto m = board_->lastMove();
+        if (m) {
+            moveHistory_.push_back(*m);
+        }
+    }
+    return success;
+}
+
 const IBoardView& GameService::getBoard() const
 {
     return *board_;

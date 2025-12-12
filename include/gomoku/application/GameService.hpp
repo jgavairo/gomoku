@@ -30,6 +30,8 @@ public:
     PlayResult makeMove(const Move& move) override;
     bool canUndo() const override;
     bool undo() override;
+    bool canRedo() const override;
+    bool redo() override;
 
     const IBoardView& getBoard() const override;
     std::vector<Move> getLegalMoves() const override;

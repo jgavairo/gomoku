@@ -45,6 +45,7 @@ public:
     GamePlayResult playHuman(Pos p); // validate + play
     GamePlayResult playAI(int timeMs = 500); // search + play
     bool undo(int halfMoves = 1); // undo half-moves
+    bool redo(int halfMoves = 1); // redo half-moves
     void reset(Player start = Player::Black);
 
     // Utilities

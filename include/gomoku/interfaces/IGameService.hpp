@@ -27,6 +27,8 @@ public:
     virtual PlayResult makeMove(const Move& move) = 0;
     virtual bool canUndo() const = 0;
     virtual bool undo() = 0;
+    virtual bool canRedo() const = 0;
+    virtual bool redo() = 0;
 
     // Board access
     virtual const IBoardView& getBoard() const = 0;

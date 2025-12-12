@@ -39,7 +39,7 @@ public:
     int moveCount() const override;
 
     // Last move played (if any)
-    std::optional<Move> lastMove() const;
+    std::optional<Move> lastMove() const override;
 
     // Last k moves (most recent first). Returns up to k moves.
     std::vector<Move> lastMoves(std::size_t k) const;
@@ -47,6 +47,8 @@ public:
     PlayResult tryPlay(Move m, const RuleSet& rules);
     bool wouldCapture(Move m) const { return capture::wouldCapture(state, m); }
     bool undo();
+    bool canRedo() const;
+    bool redo(const RuleSet& rules);
 
     bool speculativeTry(Move m, const RuleSet& rules, PlayResult* out);
 
@@ -79,11 +81,12 @@ private:
         uint64_t zobristBefore { 0 }; // Hash Zobrist avant le coup
     };
     std::vector<UndoEntry> moveHistory;
+    std::vector<Move> redoHistory;
 
     static_assert(BOARD_SIZE * BOARD_SIZE < std::numeric_limits<int16_t>::max(), "occIdx_ requires N < int16_t::max");
 
     // Facteur interne : logique partagée d'application. Si record=true, pousse UndoEntry.
-    PlayResult applyCore(Move m, const RuleSet& rules, bool record);
+    PlayResult applyCore(Move m, const RuleSet& rules, bool record, bool clearRedo = true);
 
     // capture logic moved to CaptureEngine (free functions)
 };

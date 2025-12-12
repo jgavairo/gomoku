@@ -1,6 +1,7 @@
 #pragma once
 #include "gomoku/core/Types.hpp"
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 namespace gomoku {
@@ -22,6 +23,7 @@ public:
     virtual bool isBoardFull() const = 0;
     virtual std::vector<Move> legalMoves(Player p, const RuleSet& rules) const = 0;
     virtual int moveCount() const = 0;
+    virtual std::optional<Move> lastMove() const = 0;
 
     // Hash for transposition tables
     virtual uint64_t zobristKey() const = 0;

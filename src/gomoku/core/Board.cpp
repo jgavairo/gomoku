@@ -62,11 +62,12 @@ void Board::reset()
     currentPlayer = Player::Black;
     gameState = GameStatus::Ongoing;
     moveHistory.clear();
+    redoHistory.clear();
     // Side encoded in state.reset(true)
 }
 
 // ------------------------------------------------
-PlayResult Board::applyCore(Move m, const RuleSet& rules, bool record)
+PlayResult Board::applyCore(Move m, const RuleSet& rules, bool record, bool clearRedo)
 {
     if (gameState != GameStatus::Ongoing) {
         return PlayResult::fail(PlayErrorCode::GameFinished, "Game already finished.");
@@ -155,6 +156,9 @@ PlayResult Board::applyCore(Move m, const RuleSet& rules, bool record)
 
     if (record) {
         moveHistory.push_back(std::move(u));
+        if (clearRedo) {
+            redoHistory.clear();
+        }
     }
     currentPlayer = opponent(currentPlayer);
     state.flipSide();
@@ -164,7 +168,7 @@ PlayResult Board::applyCore(Move m, const RuleSet& rules, bool record)
 
 PlayResult Board::tryPlay(Move m, const RuleSet& rules)
 {
-    return applyCore(m, rules, true);
+    return applyCore(m, rules, true, true);
 }
 
 bool Board::speculativeTry(Move m, const RuleSet& rules, PlayResult* out)
@@ -255,6 +259,9 @@ bool Board::undo()
     UndoEntry u = std::move(moveHistory.back());
     moveHistory.pop_back();
 
+    // Sauvegarder le coup annulé dans l'historique de redo
+    redoHistory.push_back(u.move);
+
     // Restaurer le joueur courant
     currentPlayer = u.playerBefore;
 
@@ -276,6 +283,39 @@ bool Board::undo()
 
     // Restaurer le hash Zobrist sauvegardé (plus fiable que de le reconstruire)
     state.zobristHash = u.zobristBefore;
+
+    return true;
+}
+
+bool Board::canRedo() const
+{
+    return !redoHistory.empty();
+}
+
+bool Board::redo(const RuleSet& rules)
+{
+    if (redoHistory.empty())
+        return false;
+
+    Move m = redoHistory.back();
+    // On retire le coup de la pile redo AVANT de l'appliquer,
+    // car applyCore(..., clearRedo=false) ne touche pas à redoHistory,
+    // mais si applyCore échoue (ce qui ne devrait pas arriver sur un redo valide),
+    // on voudrait peut-être le remettre ?
+    // En pratique, un coup dans redoHistory est supposé valide car il vient d'être annulé.
+    redoHistory.pop_back();
+
+    // applyCore va l'ajouter à moveHistory.
+    // Important : clearRedo = false pour ne pas effacer le reste de la pile redo.
+    PlayResult pr = applyCore(m, rules, true, false);
+
+    if (!pr.success) {
+        // Si par miracle le coup n'est plus valide (ex: changement de règles entre temps ?),
+        // on le remet pour ne pas le perdre, ou on considère que la chaîne est rompue.
+        // Ici on le remet pour être safe.
+        redoHistory.push_back(m);
+        return false;
+    }
 
     return true;
 }

@@ -361,3 +361,43 @@ void run_all_reversibility_tests()
 {
     run_all_tests("Reversibility and Consistency");
 }
+
+// Test 7.13: True Redo functionality
+TEST(true_redo_functionality)
+{
+    Board board;
+    RuleSet rules;
+
+    // Move 1
+    Move m1 { Pos { 9, 9 }, Player::Black };
+    board.tryPlay(m1, rules);
+    uint64_t hash1 = board.zobristKey();
+
+    // Move 2
+    Move m2 { Pos { 10, 9 }, Player::White };
+    board.tryPlay(m2, rules);
+    uint64_t hash2 = board.zobristKey();
+
+    // Undo Move 2
+    board.undo();
+    ASSERT_EQ(board.zobristKey(), hash1);
+
+    // Redo Move 2
+    bool redoSuccess = board.redo(rules);
+    ASSERT_TRUE(redoSuccess);
+    ASSERT_EQ(board.zobristKey(), hash2);
+    ASSERT_EQ(board.at(10, 9), Cell::White);
+
+    // Undo Move 2 again
+    board.undo();
+    ASSERT_EQ(board.zobristKey(), hash1);
+
+    // Play a DIFFERENT Move 2'
+    Move m2_prime { Pos { 9, 10 }, Player::White };
+    board.tryPlay(m2_prime, rules);
+    
+    // Redo should now be impossible (cleared)
+    ASSERT_FALSE(board.redo(rules));
+    
+    TEST_PASSED();
+}

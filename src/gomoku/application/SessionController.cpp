@@ -79,6 +79,22 @@ bool SessionController::undo(int halfMoves)
     return any;
 }
 
+bool SessionController::redo(int halfMoves)
+{
+    bool any = false;
+    for (int i = 0; i < halfMoves; ++i) {
+        if (!gameService_->redo())
+            break;
+        any = true;
+    }
+    if (any) {
+        auto m = gameService_->getBoard().lastMove();
+        if (m)
+            last_ = m->pos;
+    }
+    return any;
+}
+
 void SessionController::reset(Player start)
 {
     gameService_->startNewGame(rules_);
