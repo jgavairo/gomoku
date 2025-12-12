@@ -67,6 +67,10 @@ bool ResourceManager::init()
         return false;
     if (!loadTexture("quit_game_button", texturePath_ + "ui/quit_game_button.png"))
         return false;
+    if (!loadTexture("new_game_button", texturePath_ + "ui/new_game_button.png"))
+        return false;
+    if (!loadTexture("continue_button", texturePath_ + "ui/continue_button.png"))
+        return false;
 
 
     setAudioPackage("default");
@@ -108,6 +112,8 @@ bool ResourceManager::setTexturePackage(const std::string& theme)
         {"sound_off", "ui/sound_off.png"},
         {"white_win", "white_win.png"},
         {"black_win", "black_win.png"},
+        {"new_game_button", "new_game_button.png"},
+        {"continue_button", "continue_button.png"},
     };
 
     bool allOk = true;
