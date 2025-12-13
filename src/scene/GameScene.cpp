@@ -2,6 +2,8 @@
 #include "audio/Volumes.hpp"
 #include "util/GameSaver.hpp"
 #include <algorithm>
+#include <sstream>
+#include <string>
 #include <chrono>
 #include <cmath>
 #include <fstream>
@@ -333,32 +335,8 @@ void GameScene::render(sf::RenderTarget& target) const
     undoButton_.render(target);
     redoButton_.render(target);
     // HUD: toPlay, captures, last move, AI time
-    auto snap = gameSession_.snapshot();
-    if (fontOk_) {
-        char buf[128];
-        auto caps = snap.captures;
-        std::snprintf(buf, sizeof(buf), "   To play: %s\n   Captures ●:%d ○:%d\n    Moves: %d%s%s%s\n",
-            (snap.toPlay == gomoku::Player::Black ? "Black" : "White"),
-            caps.first, caps.second,
-            snap.moveCount,
-            (lastAiMs_ >= 0 ? "   |  AI:" : ""),
-            (lastAiMs_ >= 0 ? " ms" : ""),
-            "");
-        std::string line(buf);
-        if (snap.lastMove) {
-            line += "   |  Last: ";
-            line += std::to_string((int)snap.lastMove->x);
-            line += ",";
-            line += std::to_string((int)snap.lastMove->y);
-        }
-        if (lastAiMs_ >= 0) {
-            line += "   |  AI time: ";
-            line += std::to_string(lastAiMs_);
-            line += "ms";
-        }
-        hudText_.setString(line);
-        target.draw(hudText_);
-    }
+    GameSnapshot snap = gameSession_.snapshot();
+    displayInfos(snap, lastAiMs_, target, hudText_, fontOk_);
 
     // Illegal message (timed)
     if (fontOk_ && !illegalMsg_.empty() && illegalClock_.getElapsedTime().asSeconds() < 2.0f) {
@@ -423,6 +401,45 @@ void GameScene::onUndoClicked()
     }
     hintEnabled_ = false;
     hintPos_.reset();
+}
+
+void GameScene::displayInfos(GameSnapshot snapshot, int aiTime, sf::RenderTarget& target, sf::Text hudText_, bool fontOk_)
+{
+    auto captures = snapshot.captures;
+    auto white_captured = captures.second;
+    auto black_captured = captures.first;
+    int turn = ((snapshot.moveCount + 1) / 2);
+    std::string toPlayStr = (snapshot.toPlay == gomoku::Player::Black ? "Black" : "White");
+
+    // --- 2. Construction de la Chaîne avec std::stringstream ---
+    std::stringstream ss;
+    
+    // Ligne 1: Joueur à jouer et Numéro du Tour
+    ss << "\n\n\n\nTo move " << toPlayStr;
+
+    // Ligne 2: Captures
+    ss << "\n\nCaptured :  B  : " << black_captured 
+       << " |  W  : " << white_captured;
+       
+    // Ligne 3: Nombre de mouvements total
+    ss << "\n\nTurn " << turn;
+
+    // Ligne 4: Temps de l'IA (conditionnel)
+    if (aiTime >= 0) {
+        ss << "\n\nAI " << aiTime << "ms";
+    }
+
+    // --- 3. Envoi à la Cible (Rendu SFML) ---
+    
+    // Vérification de la police (nécessaire pour éviter les crashs si font_ n'est pas chargée)
+    if (fontOk_) {
+        // Définit le contenu de l'objet sf::Text membre (hudText_)
+        hudText_.setString(ss.str()); 
+        
+        // Dessine le texte sur la cible de rendu (votre fenêtre SFML)
+        target.draw(hudText_);
+    }
+    
 }
 
 void GameScene::onRedoClicked()

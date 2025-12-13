@@ -19,12 +19,13 @@ public:
     void render(sf::RenderTarget& target) const override;
     void onThemeChanged() override;
     void loadGame();
-
-private:
+    
+    private:
     void onQuitGameClicked();
     void onHintClicked();
     void onUndoClicked();
     void onRedoClicked();
+    static void displayInfos(GameSnapshot snapshot, int aiTime, sf::RenderTarget& target, sf::Text hudText_, bool fontOk_);
 
     std::optional<gomoku::Pos> hintPos_;
     bool hintEnabled_ = false;
