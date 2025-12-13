@@ -1,7 +1,7 @@
 #pragma once
 #include "gui/ResourceManager.hpp"
-#include <SFML/Graphics.hpp>
 #include <SFML/Audio.hpp>
+#include <SFML/Graphics.hpp>
 
 namespace gomoku::gui {
 class GameBoardRenderer;
@@ -18,6 +18,7 @@ struct Context {
     bool inGame = false;
     bool showGameSelectMenu = false;
     bool showLoadGameMenu = false;
+    bool shouldLoadGame = false;
     bool showSettingsMenu = false;
     bool showMainMenu = false;
     bool vsAi = false;

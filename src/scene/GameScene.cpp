@@ -1,9 +1,12 @@
 #include "scene/GameScene.hpp"
 #include "audio/Volumes.hpp"
+#include "util/GameSaver.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <fstream>
 #include <iostream>
+#include <vector>
 
 namespace gomoku::scene {
 
@@ -43,7 +46,7 @@ GameScene::GameScene(Context& context, bool vsAi)
 
     // Configure controllers according to mode
     if (vsAi_) {
-        // Default SessionController ctor is Black:Human, White:AI; keep as is for now
+        // AI plays Black (first), Human plays White
         gameSession_.setController(gomoku::Player::Black, gomoku::Controller::AI);
         gameSession_.setController(gomoku::Player::White, gomoku::Controller::Human);
         pendingAi_ = true;
@@ -438,15 +441,62 @@ void GameScene::onRedoClicked()
 
 void GameScene::onQuitGameClicked()
 {
-    // Save plateau si game non finie WAITING FIX
-    //
-    //
-    //
+    // Save plateau si game non finie
+    auto snap = gameSession_.snapshot();
+    if (snap.status == gomoku::GameStatus::Ongoing) {
+        gomoku::util::SaveData data;
+        data.vsAi = vsAi_;
+        gomoku::util::GameSaver::save(data, snap);
+    }
+
     printf("on Quit Game Clicked\n");
     context_.inGame = false;
     context_.showMainMenu = true;
     std::string musicPath = std::string("assets/audio/") + context_.theme + "/menu_theme.ogg";
     playMusic(musicPath.c_str(), true, MUSIC_VOLUME);
+}
+
+void GameScene::loadGame()
+{
+    gomoku::util::SaveData data;
+    std::vector<uint8_t> boardData;
+
+    if (gomoku::util::GameSaver::load(data, boardData)) {
+        // Restore mode if different
+        if (data.vsAi != vsAi_) {
+            std::cout << "[GameScene] Switching mode to match save: " << (data.vsAi ? "AI" : "PvP") << std::endl;
+            vsAi_ = data.vsAi;
+        }
+
+        // Enforce controller config
+        if (vsAi_) {
+            // AI plays Black (first), Human plays White
+            gameSession_.setController(gomoku::Player::Black, gomoku::Controller::AI);
+            gameSession_.setController(gomoku::Player::White, gomoku::Controller::Human);
+        } else {
+            gameSession_.setController(gomoku::Player::Black, gomoku::Controller::Human);
+            gameSession_.setController(gomoku::Player::White, gomoku::Controller::Human);
+        }
+
+        auto result = gameSession_.load(boardData);
+        if (result.ok) {
+            std::cout << "[GameScene] Game loaded successfully" << std::endl;
+            auto snap = gameSession_.snapshot();
+            const_cast<gomoku::gui::GameBoardRenderer&>(boardRenderer_).setBoardView(snap.view);
+
+            // Update pendingAi_ state based on whose turn it is
+            if (vsAi_ && gameSession_.controller(snap.toPlay) == gomoku::Controller::AI) {
+                pendingAi_ = true;
+                framePresented_ = false;
+            } else {
+                pendingAi_ = false;
+            }
+        } else {
+            throw std::runtime_error("[GameScene] Failed to load game: " + result.why);
+        }
+    } else {
+        std::cerr << "[GameScene] No valid save found." << std::endl;
+    }
 }
 
 void GameScene::onHintClicked()

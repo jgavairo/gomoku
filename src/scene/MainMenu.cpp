@@ -1,8 +1,8 @@
 #include "scene/MainMenu.hpp"
-#include "util/GameSaver.hpp"
-#include <iostream>
 #include "audio/Volumes.hpp"
+#include "util/GameSaver.hpp"
 #include "util/Logger.hpp"
+#include <iostream>
 
 namespace gomoku::scene {
 
@@ -60,9 +60,8 @@ void MainMenu::onThemeChanged()
 
 void MainMenu::onPlayClicked()
 {
-    //WAINTING FIX >>> if save exist
-    if (gomoku::util::GameSaver::saveIsExist())
-    {
+    // WAINTING FIX >>> if save exist
+    if (gomoku::util::GameSaver::hasSave()) {
         LOG_INFO("SAVE EXIST");
         context_.inGame = false;
         context_.showLoadGameMenu = true;
@@ -76,7 +75,7 @@ void MainMenu::onPlayClicked()
         context_.from_loadGame = false;
     }
     // sinon afficher direct //gameselectmenu
-    
+
     // keep menu music by default
 }
 

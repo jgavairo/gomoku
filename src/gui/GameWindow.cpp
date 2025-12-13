@@ -1,22 +1,23 @@
 #include "gui/GameWindow.hpp"
+#include "audio/Volumes.hpp"
 #include "scene/GameScene.hpp"
 #include "scene/GameSelect.hpp"
-#include "scene/Settings.hpp"
-#include "scene/MainMenu.hpp"
 #include "scene/LoadGameScene.hpp"
-#include <cmath>
-#include "audio/Volumes.hpp"
-#include "util/Preferences.hpp"
+#include "scene/MainMenu.hpp"
+#include "scene/Settings.hpp"
 #include "util/GameSaver.hpp"
+#include "util/Preferences.hpp"
+#include <cmath>
 #include <iostream>
+#include "util/Logger.hpp"
 
 namespace gomoku::gui {
 
 using gomoku::scene::Context;
 using gomoku::scene::GameScene;
 using gomoku::scene::GameSelectScene;
-using gomoku::scene::MainMenu;
 using gomoku::scene::LoadGameScene;
+using gomoku::scene::MainMenu;
 
 GameWindow::GameWindow() { init(); }
 GameWindow::~GameWindow() { cleanup(); }
@@ -119,10 +120,17 @@ void GameWindow::cleanup()
     // Stop music and SFX before releasing resources
     try {
         music_.stop();
-    } catch (...) {}
+    } catch (...) {
+    }
     for (auto& voice : sfxVoices_) {
-        try { voice.stop(); } catch (...) {}
-        try { voice.resetBuffer(); } catch (...) {}
+        try {
+            voice.stop();
+        } catch (...) {
+        }
+        try {
+            voice.resetBuffer();
+        } catch (...) {
+        }
     }
     sfxVoices_.clear();
     if (currentScene_) {
@@ -185,9 +193,29 @@ void GameWindow::run()
         if (context_.inGame && !context_.showGameSelectMenu && !context_.showMainMenu) {
             if (currentScene_)
                 currentScene_->onExit();
+                LOG_DEBUG("GameWindow: Switching to GameScene");
             std::cout << "[RUN] switch -> GameScene (vsAi=" << (context_.vsAi ? "true" : "false") << ")" << std::endl;
             setBackgroundSpriteTexturePrefer("background");
-            currentScene_ = std::make_unique<GameScene>(context_, context_.vsAi);
+            auto gameScene = std::make_unique<GameScene>(context_, context_.vsAi);
+            if (context_.shouldLoadGame) {
+                try
+                {
+                    gameScene->loadGame();
+                    currentScene_ = std::move(gameScene);
+                }
+                catch(const std::exception& e)
+                {
+                    std::string error;
+                    error = "GameWindow: Save data are corrupted";
+                    LOG_ERROR(error);
+                }
+                LOG_INFO("GameWindow: before loading game, shouldLoadGame=true");
+                context_.shouldLoadGame = false;
+                LOG_INFO("GameWindow: after loading game, shouldLoadGame=false");
+            }
+            else {
+                currentScene_ = std::move(gameScene);
+            }
             context_.inGame = false;
         }
         if (context_.shouldQuit) {
@@ -207,7 +235,7 @@ void GameWindow::run()
             // Fond spécial Settings
             setBackgroundSpriteTexturePrefer("settings_menu");
             currentScene_ = std::make_unique<gomoku::scene::SettingsScene>(context_);
-            
+
             context_.showSettingsMenu = false;
         } else if (context_.showMainMenu && !context_.inGame && !context_.showGameSelectMenu) {
             if (currentScene_)
@@ -268,7 +296,7 @@ void GameWindow::layoutBackgroundToWindow()
     float spriteW = static_cast<float>(texSize.x) * scale;
     float spriteH = static_cast<float>(texSize.y) * scale;
     backgroundSprite_->setPosition((static_cast<float>(winSize.x) - spriteW) * 0.5f,
-                                   (static_cast<float>(winSize.y) - spriteH) * 0.5f);
+        (static_cast<float>(winSize.y) - spriteH) * 0.5f);
 }
 
 } // namespace gomoku::gui
