@@ -61,7 +61,10 @@ bool LoadGameScene::handleInput(sf::Event& event)
 
 void LoadGameScene::onContinueClicked()
 {
-    //WAITING IMPLEMENT
+    LOG_INFO("LoadGame: Continue clicked");
+    context_.shouldLoadGame = true;
+    context_.inGame = true;
+    context_.showLoadGameMenu = false;
 }
 
 void LoadGameScene::onNewGameClicked()

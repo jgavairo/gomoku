@@ -18,10 +18,10 @@ public:
     void update(sf::Time& deltaTime) override;
     void render(sf::RenderTarget& target) const override;
     void onThemeChanged() override;
+    void loadGame();
 
 private:
     void onQuitGameClicked();
-    void loadGame();
     void onHintClicked();
     void onUndoClicked();
     void onRedoClicked();

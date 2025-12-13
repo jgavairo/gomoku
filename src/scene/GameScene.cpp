@@ -1,5 +1,6 @@
 #include "scene/GameScene.hpp"
 #include "audio/Volumes.hpp"
+#include "util/GameSaver.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -45,7 +46,7 @@ GameScene::GameScene(Context& context, bool vsAi)
 
     // Configure controllers according to mode
     if (vsAi_) {
-        // Default SessionController ctor is Black:Human, White:AI; keep as is for now
+        // AI plays Black (first), Human plays White
         gameSession_.setController(gomoku::Player::Black, gomoku::Controller::AI);
         gameSession_.setController(gomoku::Player::White, gomoku::Controller::Human);
         pendingAi_ = true;
@@ -443,36 +444,9 @@ void GameScene::onQuitGameClicked()
     // Save plateau si game non finie
     auto snap = gameSession_.snapshot();
     if (snap.status == gomoku::GameStatus::Ongoing) {
-        std::vector<uint8_t> buffer;
-        auto pushInt = [&](uint32_t val) {
-            buffer.push_back(static_cast<uint8_t>((val >> 0) & 0xFF));
-            buffer.push_back(static_cast<uint8_t>((val >> 8) & 0xFF));
-            buffer.push_back(static_cast<uint8_t>((val >> 16) & 0xFF));
-            buffer.push_back(static_cast<uint8_t>((val >> 24) & 0xFF));
-        };
-        auto pushMove = [&](const gomoku::Move& m) {
-            buffer.push_back(m.pos.x);
-            buffer.push_back(m.pos.y);
-            buffer.push_back(static_cast<uint8_t>(m.by));
-        };
-
-        // 1. Move History
-        pushInt(static_cast<uint32_t>(snap.moveHistory.size()));
-        for (const auto& m : snap.moveHistory) {
-            pushMove(m);
-        }
-
-        // 2. Redo History
-        pushInt(static_cast<uint32_t>(snap.redoHistory.size()));
-        for (const auto& m : snap.redoHistory) {
-            pushMove(m);
-        }
-
-        std::ofstream file("save.dat", std::ios::binary);
-        if (file) {
-            file.write(reinterpret_cast<const char*>(buffer.data()), buffer.size());
-            std::cout << "[GameScene] Game saved to save.dat (" << buffer.size() << " bytes)" << std::endl;
-        }
+        gomoku::util::SaveData data;
+        data.vsAi = vsAi_;
+        gomoku::util::GameSaver::save(data, snap);
     }
 
     printf("on Quit Game Clicked\n");
@@ -484,31 +458,44 @@ void GameScene::onQuitGameClicked()
 
 void GameScene::loadGame()
 {
-    std::ifstream file("save.dat", std::ios::binary | std::ios::ate);
-    if (!file) {
-        std::cerr << "[GameScene] No save file found." << std::endl;
-        return;
-    }
+    gomoku::util::SaveData data;
+    std::vector<uint8_t> boardData;
 
-    std::streamsize size = file.tellg();
-    file.seekg(0, std::ios::beg);
+    if (gomoku::util::GameSaver::load(data, boardData)) {
+        // Restore mode if different
+        if (data.vsAi != vsAi_) {
+            std::cout << "[GameScene] Switching mode to match save: " << (data.vsAi ? "AI" : "PvP") << std::endl;
+            vsAi_ = data.vsAi;
+        }
 
-    std::vector<uint8_t> buffer(size);
-    if (file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-        auto result = gameSession_.load(buffer);
+        // Enforce controller config
+        if (vsAi_) {
+            // AI plays Black (first), Human plays White
+            gameSession_.setController(gomoku::Player::Black, gomoku::Controller::AI);
+            gameSession_.setController(gomoku::Player::White, gomoku::Controller::Human);
+        } else {
+            gameSession_.setController(gomoku::Player::Black, gomoku::Controller::Human);
+            gameSession_.setController(gomoku::Player::White, gomoku::Controller::Human);
+        }
+
+        auto result = gameSession_.load(boardData);
         if (result.ok) {
-            std::cout << "[GameScene] Game loaded successfully (" << size << " bytes)" << std::endl;
+            std::cout << "[GameScene] Game loaded successfully" << std::endl;
             auto snap = gameSession_.snapshot();
             const_cast<gomoku::gui::GameBoardRenderer&>(boardRenderer_).setBoardView(snap.view);
 
-            // If loaded game is vs AI and it's AI turn, trigger it
+            // Update pendingAi_ state based on whose turn it is
             if (vsAi_ && gameSession_.controller(snap.toPlay) == gomoku::Controller::AI) {
                 pendingAi_ = true;
                 framePresented_ = false;
+            } else {
+                pendingAi_ = false;
             }
         } else {
-            std::cerr << "[GameScene] Failed to load game: " << result.why << std::endl;
+            throw std::runtime_error("[GameScene] Failed to load game: " + result.why);
         }
+    } else {
+        std::cerr << "[GameScene] No valid save found." << std::endl;
     }
 }
 

@@ -1,7 +1,7 @@
 #pragma once
 #include "gui/ResourceManager.hpp"
-#include <SFML/Graphics.hpp>
 #include <SFML/Audio.hpp>
+#include <SFML/Graphics.hpp>
 
 namespace gomoku::gui {
 class GameBoardRenderer;
@@ -18,6 +18,7 @@ struct Context {
     bool inGame = false;
     bool showGameSelectMenu = false;
     bool showLoadGameMenu = false;
+    bool shouldLoadGame = false;
     bool showSettingsMenu = false;
     bool showMainMenu = false;
     bool vsAi = false;
@@ -27,8 +28,8 @@ struct Context {
     // Audio settings
     bool sfxEnabled = true;
     bool musicEnabled = true;
-    float sfxVolume = 100.f;   // master SFX volume (0-100)
-    float musicVolume = 10.f;  // default music volume (0-100)
+    float sfxVolume = 100.f; // master SFX volume (0-100)
+    float musicVolume = 10.f; // default music volume (0-100)
 };
 
 } // namespace gomoku::scene
