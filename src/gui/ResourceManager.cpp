@@ -112,8 +112,8 @@ bool ResourceManager::setTexturePackage(const std::string& theme)
         {"sound_off", "ui/sound_off.png"},
         {"white_win", "white_win.png"},
         {"black_win", "black_win.png"},
-        {"new_game_button", "new_game_button.png"},
-        {"continue_button", "continue_button.png"},
+        {"new_game_button", "ui/new_game_button.png"},
+        {"continue_button", "ui/continue_button.png"},
     };
 
     bool allOk = true;

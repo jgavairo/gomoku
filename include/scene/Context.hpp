@@ -17,6 +17,7 @@ struct Context {
     bool shouldQuit = false;
     bool inGame = false;
     bool showGameSelectMenu = false;
+    bool showLoadGameMenu = false;
     bool showSettingsMenu = false;
     bool showMainMenu = false;
     bool vsAi = false;
