@@ -85,10 +85,21 @@ void GameSelectScene::onPlayerVsBotClicked()
 
 void GameSelectScene::onBackClicked()
 {
-    LOG_INFO("GameSelect: Back to main menu");
-    context_.showGameSelectMenu = false;
-    context_.inGame = false;
-    context_.showMainMenu = true;
+    if (context_.from_loadGame)
+    {
+        LOG_INFO("GameSelect: Back to load game menu");
+        context_.showGameSelectMenu = false;
+        context_.inGame = false;
+        context_.showLoadGameMenu = true;
+    }
+    else
+    {
+        LOG_INFO("GameSelect: Back to main menu");
+        context_.showGameSelectMenu = false;
+        context_.inGame = false;
+        context_.showMainMenu = true;
+    }
+
 }
 
 } // namespace gomoku::scene

@@ -334,8 +334,8 @@ void GameScene::render(sf::RenderTarget& target) const
     if (fontOk_) {
         char buf[128];
         auto caps = snap.captures;
-        std::snprintf(buf, sizeof(buf), "To play: %s   Captures ●:%d ○:%d   Moves: %d%s%s%s",
-            (snap.toPlay == gomoku::Player::Black ? "● Black" : "○ White"),
+        std::snprintf(buf, sizeof(buf), "   To play: %s\n   Captures ●:%d ○:%d\n    Moves: %d%s%s%s\n",
+            (snap.toPlay == gomoku::Player::Black ? "Black" : "White"),
             caps.first, caps.second,
             snap.moveCount,
             (lastAiMs_ >= 0 ? "   |  AI:" : ""),

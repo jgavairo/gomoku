@@ -29,6 +29,7 @@ struct Context {
     bool musicEnabled = true;
     float sfxVolume = 100.f;   // master SFX volume (0-100)
     float musicVolume = 10.f;  // default music volume (0-100)
+    bool from_loadGame = false;
 };
 
 } // namespace gomoku::scene

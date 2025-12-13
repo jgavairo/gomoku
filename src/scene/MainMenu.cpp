@@ -66,12 +66,14 @@ void MainMenu::onPlayClicked()
         LOG_INFO("SAVE EXIST");
         context_.inGame = false;
         context_.showLoadGameMenu = true;
+        context_.from_loadGame = true;
     }
     else
     {
         LOG_INFO("SAVE NOT EXIST");
         context_.inGame = false;
         context_.showGameSelectMenu = true;
+        context_.from_loadGame = false;
     }
     // sinon afficher direct //gameselectmenu
     
