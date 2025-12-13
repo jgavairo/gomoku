@@ -9,8 +9,8 @@ LoadGameScene::LoadGameScene(Context& ctx)
 {
     LOG_INFO("Load or new game scene initialization");
 
-    initButtons(continueButton_, "vs_player_button", { 111, 696 }, 1.0f, [this]() { onContinueClicked(); });
-    initButtons(newGameButton_, "vs_ai_button", { 693, 696 }, 1.0f, [this]() { onNewGameClicked(); });
+    initButtons(continueButton_, "continue_button", { 111, 696 }, 1.0f, [this]() { onContinueClicked(); });
+    initButtons(newGameButton_, "new_game_button", { 693, 696 }, 1.0f, [this]() { onNewGameClicked(); });
     initButtons(backButton_, "back_button", { 1284, 695.5f }, 1.0f, [this]() { onBackClicked(); });
 }
 
@@ -66,7 +66,7 @@ void LoadGameScene::onContinueClicked()
 
 void LoadGameScene::onNewGameClicked()
 {
-    //WAITING IMPLEMENT
+    context_.showGameSelectMenu = true;
 }
 
 void LoadGameScene::onBackClicked()

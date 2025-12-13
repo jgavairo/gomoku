@@ -3,9 +3,11 @@
 #include "scene/GameSelect.hpp"
 #include "scene/Settings.hpp"
 #include "scene/MainMenu.hpp"
+#include "scene/LoadGameScene.hpp"
 #include <cmath>
 #include "audio/Volumes.hpp"
 #include "util/Preferences.hpp"
+#include "util/GameSaver.hpp"
 #include <iostream>
 
 namespace gomoku::gui {
@@ -14,6 +16,7 @@ using gomoku::scene::Context;
 using gomoku::scene::GameScene;
 using gomoku::scene::GameSelectScene;
 using gomoku::scene::MainMenu;
+using gomoku::scene::LoadGameScene;
 
 GameWindow::GameWindow() { init(); }
 GameWindow::~GameWindow() { cleanup(); }
@@ -214,6 +217,14 @@ void GameWindow::run()
             // Revenir au fond générique
             setBackgroundSpriteTexturePrefer("background");
             context_.showMainMenu = false;
+        } else if (context_.showLoadGameMenu && !context_.inGame && !context_.showGameSelectMenu) {
+            if (currentScene_)
+                currentScene_->onExit();
+            std::cout << "[RUN] switch -> MainMenu" << std::endl;
+            currentScene_ = std::make_unique<LoadGameScene>(context_);
+            // Revenir au fond générique
+            setBackgroundSpriteTexturePrefer("background");
+            context_.showLoadGameMenu = false;
         }
         if (currentScene_)
             currentScene_->update(deltaTime_);

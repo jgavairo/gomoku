@@ -82,11 +82,13 @@ GUI_SRC = \
 	$(SRC_DIR)/scene/AScene.cpp \
 	$(SRC_DIR)/scene/GameScene.cpp \
 	$(SRC_DIR)/scene/GameSelect.cpp \
+	$(SRC_DIR)/scene/LoadGameScene.cpp \
 	$(SRC_DIR)/scene/Settings.cpp \
 	$(SRC_DIR)/scene/MainMenu.cpp \
 	$(SRC_DIR)/gui/GameWindow.cpp \
 	$(SRC_DIR)/gui/GameBoardRenderer.cpp \
 	$(SRC_DIR)/gui/ResourceManager.cpp \
+	$(SRC_DIR)/util/GameSaver.cpp \
 	$(SRC_DIR)/util/Preferences.cpp
 
 UNIT_TEST_SRC = \

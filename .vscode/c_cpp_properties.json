@@ -11,7 +11,7 @@
         "${workspaceFolder}/include",
         "${workspaceFolder}/src",
         "${env:HOME}/local/include",
-        "${env:HOME}/local/include/SFML"
+        "${env:HOME}/local/include/SFML",
       ],
       "defines": []
     }
