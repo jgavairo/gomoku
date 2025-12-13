@@ -113,7 +113,7 @@ void SessionController::reset(Player start)
     last_.reset();
 }
 
-bool SessionController::load(const std::vector<uint8_t>& data)
+GamePlayResult SessionController::load(const std::vector<uint8_t>& data)
 {
     bool ok = gameService_->loadGame(data);
     if (ok) {
@@ -122,8 +122,9 @@ bool SessionController::load(const std::vector<uint8_t>& data)
             last_ = m->pos;
         else
             last_.reset();
+        return { true, {}, std::nullopt, std::nullopt };
     }
-    return ok;
+    return { false, "Failed to load game data", std::nullopt, std::nullopt };
 }
 
 GamePlayResult SessionController::hint(int timeMs) const

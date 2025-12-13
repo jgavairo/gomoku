@@ -51,7 +51,7 @@ public:
     void reset(Player start = Player::Black);
 
     // Persistence
-    bool load(const std::vector<uint8_t>& data);
+    GamePlayResult load(const std::vector<uint8_t>& data);
 
     // Utilities
     GamePlayResult hint(int timeMs = 500) const;
