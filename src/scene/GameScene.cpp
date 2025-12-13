@@ -3,7 +3,9 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <fstream>
 #include <iostream>
+#include <vector>
 
 namespace gomoku::scene {
 
@@ -438,15 +440,76 @@ void GameScene::onRedoClicked()
 
 void GameScene::onQuitGameClicked()
 {
-    // Save plateau si game non finie WAITING FIX
-    //
-    //
-    //
+    // Save plateau si game non finie
+    auto snap = gameSession_.snapshot();
+    if (snap.status == gomoku::GameStatus::Ongoing) {
+        std::vector<uint8_t> buffer;
+        auto pushInt = [&](uint32_t val) {
+            buffer.push_back(static_cast<uint8_t>((val >> 0) & 0xFF));
+            buffer.push_back(static_cast<uint8_t>((val >> 8) & 0xFF));
+            buffer.push_back(static_cast<uint8_t>((val >> 16) & 0xFF));
+            buffer.push_back(static_cast<uint8_t>((val >> 24) & 0xFF));
+        };
+        auto pushMove = [&](const gomoku::Move& m) {
+            buffer.push_back(m.pos.x);
+            buffer.push_back(m.pos.y);
+            buffer.push_back(static_cast<uint8_t>(m.by));
+        };
+
+        // 1. Move History
+        pushInt(static_cast<uint32_t>(snap.moveHistory.size()));
+        for (const auto& m : snap.moveHistory) {
+            pushMove(m);
+        }
+
+        // 2. Redo History
+        pushInt(static_cast<uint32_t>(snap.redoHistory.size()));
+        for (const auto& m : snap.redoHistory) {
+            pushMove(m);
+        }
+
+        std::ofstream file("save.dat", std::ios::binary);
+        if (file) {
+            file.write(reinterpret_cast<const char*>(buffer.data()), buffer.size());
+            std::cout << "[GameScene] Game saved to save.dat (" << buffer.size() << " bytes)" << std::endl;
+        }
+    }
+
     printf("on Quit Game Clicked\n");
     context_.inGame = false;
     context_.showMainMenu = true;
     std::string musicPath = std::string("assets/audio/") + context_.theme + "/menu_theme.ogg";
     playMusic(musicPath.c_str(), true, MUSIC_VOLUME);
+}
+
+void GameScene::loadGame()
+{
+    std::ifstream file("save.dat", std::ios::binary | std::ios::ate);
+    if (!file) {
+        std::cerr << "[GameScene] No save file found." << std::endl;
+        return;
+    }
+
+    std::streamsize size = file.tellg();
+    file.seekg(0, std::ios::beg);
+
+    std::vector<uint8_t> buffer(size);
+    if (file.read(reinterpret_cast<char*>(buffer.data()), size)) {
+        auto result = gameSession_.load(buffer);
+        if (result.ok) {
+            std::cout << "[GameScene] Game loaded successfully (" << size << " bytes)" << std::endl;
+            auto snap = gameSession_.snapshot();
+            const_cast<gomoku::gui::GameBoardRenderer&>(boardRenderer_).setBoardView(snap.view);
+
+            // If loaded game is vs AI and it's AI turn, trigger it
+            if (vsAi_ && gameSession_.controller(snap.toPlay) == gomoku::Controller::AI) {
+                pendingAi_ = true;
+                framePresented_ = false;
+            }
+        } else {
+            std::cerr << "[GameScene] Failed to load game: " << result.why << std::endl;
+        }
+    }
 }
 
 void GameScene::onHintClicked()

@@ -21,6 +21,7 @@ public:
 
 private:
     void onQuitGameClicked();
+    void loadGame();
     void onHintClicked();
     void onUndoClicked();
     void onRedoClicked();
@@ -37,7 +38,6 @@ private:
     mutable sf::Sprite hoverSpriteWhite_;
     mutable sf::Sprite hoverSpriteBlack_;
     mutable bool hoverSpritesReady_ = false;
-
 
     bool vsAi_;
     gomoku::ui::Button quitGameButton_;
