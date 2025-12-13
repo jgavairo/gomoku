@@ -43,6 +43,7 @@ public:
 
     // Game history and statistics
     virtual const std::vector<Move>& getMoveHistory() const = 0;
+    virtual const std::vector<Move>& getRedoHistory() const = 0;
     virtual CaptureCount getCaptureCount() const = 0;
 };
 

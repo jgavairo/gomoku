@@ -103,7 +103,7 @@ bool GameScene::handleInput(sf::Event& event)
 
     if (context_.window && redoButton_.handleInput(event, *context_.window))
         return true;
-        
+
     // Placement des pions sur clic souris
     if (context_.window && event.type == sf::Event::MouseMoved) {
         const auto size = context_.window->getSize();
@@ -140,7 +140,6 @@ bool GameScene::handleInput(sf::Event& event)
         }
         return false;
     }
-
 
     if (context_.window && event.type == sf::Event::MouseButtonPressed) {
         auto btn = event.mouseButton.button;
@@ -389,29 +388,57 @@ void GameScene::render(sf::RenderTarget& target) const
 
 void GameScene::onUndoClicked()
 {
+    int steps = 1;
     if (vsAi_) {
-        if (gameSession_.snapshot().moveCount < 2)
-            return;
-        gameSession_.undo(2);
-    } else if (!vsAi_)
-        gameSession_.undo(1);
+        auto snap = gameSession_.snapshot();
+        if (snap.moveCount == 0) {
+            steps = 0;
+        } else {
+            auto lastPlayer = gomoku::opponent(snap.toPlay);
+            auto lastCtl = gameSession_.controller(lastPlayer);
+
+            if (lastCtl == gomoku::Controller::Human) {
+                steps = 1;
+                pendingAi_ = false;
+            } else {
+                if (snap.moveCount == 1) {
+                    steps = 0;
+                } else {
+                    steps = 2;
+                }
+            }
+        }
+    }
+
+    auto result = gameSession_.undo(steps);
+    if (!result.ok) {
+        illegalMsg_ = result.why;
+        if (fontOk_) {
+            msgText_.setString(illegalMsg_);
+            illegalClock_.restart();
+        }
+    }
     hintEnabled_ = false;
     hintPos_.reset();
 }
 
 void GameScene::onRedoClicked()
 {
-    if (vsAi_)
-        gameSession_.redo(2);
-    else if (!vsAi_)
-        gameSession_.redo(1);
+    auto result = gameSession_.redo(vsAi_ ? 2 : 1);
+    if (!result.ok) {
+        illegalMsg_ = result.why;
+        if (fontOk_) {
+            msgText_.setString(illegalMsg_);
+            illegalClock_.restart();
+        }
+    }
     hintEnabled_ = false;
     hintPos_.reset();
 }
 
 void GameScene::onQuitGameClicked()
 {
-    //Save plateau si game non finie WAITING FIX
+    // Save plateau si game non finie WAITING FIX
     //
     //
     //

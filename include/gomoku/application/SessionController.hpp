@@ -17,6 +17,8 @@ struct GameSnapshot {
     std::pair<int, int> captures; // (black, white) captured pairs
     GameStatus status; // Game status
     int moveCount; // Total moves played
+    std::vector<Move> moveHistory;
+    std::vector<Move> redoHistory;
 };
 
 enum class Controller {
@@ -44,12 +46,11 @@ public:
     // Moves
     GamePlayResult playHuman(Pos p); // validate + play
     GamePlayResult playAI(int timeMs = 500); // search + play
-    bool undo(int halfMoves = 1); // undo half-moves
-    bool redo(int halfMoves = 1); // redo half-moves
+    GamePlayResult undo(int halfMoves = 1); // undo half-moves
+    GamePlayResult redo(int halfMoves = 1); // redo half-moves
     void reset(Player start = Player::Black);
 
     // Persistence
-    std::vector<uint8_t> save() const;
     bool load(const std::vector<uint8_t>& data);
 
     // Utilities

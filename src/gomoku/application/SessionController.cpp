@@ -23,7 +23,9 @@ GameSnapshot SessionController::snapshot() const
         .toPlay = b.toPlay(),
         .captures = { captures.black, captures.white },
         .status = b.status(),
-        .moveCount = b.moveCount()
+        .moveCount = b.moveCount(),
+        .moveHistory = gameService_->getMoveHistory(),
+        .redoHistory = gameService_->getRedoHistory()
     };
 }
 
@@ -66,7 +68,7 @@ GamePlayResult SessionController::playAI(int timeMs)
     return { true, {}, bm, st };
 }
 
-bool SessionController::undo(int halfMoves)
+GamePlayResult SessionController::undo(int halfMoves)
 {
     bool any = false;
     for (int i = 0; i < halfMoves; ++i) {
@@ -74,12 +76,18 @@ bool SessionController::undo(int halfMoves)
             break;
         any = true;
     }
-    if (any)
-        last_.reset();
-    return any;
+    if (any) {
+        auto m = gameService_->getBoard().lastMove();
+        if (m)
+            last_ = m->pos;
+        else
+            last_.reset();
+        return { true, {}, std::nullopt, std::nullopt };
+    }
+    return { false, "No moves to undo", std::nullopt, std::nullopt };
 }
 
-bool SessionController::redo(int halfMoves)
+GamePlayResult SessionController::redo(int halfMoves)
 {
     bool any = false;
     for (int i = 0; i < halfMoves; ++i) {
@@ -91,8 +99,9 @@ bool SessionController::redo(int halfMoves)
         auto m = gameService_->getBoard().lastMove();
         if (m)
             last_ = m->pos;
+        return { true, {}, m, std::nullopt };
     }
-    return any;
+    return { false, "No moves to redo", std::nullopt, std::nullopt };
 }
 
 void SessionController::reset(Player start)
@@ -102,11 +111,6 @@ void SessionController::reset(Player start)
         // Hack: play a null move concept not available; defer future enhancement.
     }
     last_.reset();
-}
-
-std::vector<uint8_t> SessionController::save() const
-{
-    return gameService_->saveGame();
 }
 
 bool SessionController::load(const std::vector<uint8_t>& data)

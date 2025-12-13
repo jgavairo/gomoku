@@ -42,6 +42,7 @@ public:
     bool isMoveLegal(const Move& move, std::string* reason = nullptr) const override;
 
     const std::vector<Move>& getMoveHistory() const override { return moveHistory_; }
+    const std::vector<Move>& getRedoHistory() const override;
     CaptureCount getCaptureCount() const override;
 
     // Additional GameService specific methods

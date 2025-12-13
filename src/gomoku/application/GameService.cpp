@@ -146,6 +146,11 @@ const IBoardView& GameService::getBoard() const
     return *board_;
 }
 
+const std::vector<Move>& GameService::getRedoHistory() const
+{
+    return board_->getRedoHistory();
+}
+
 std::vector<Move> GameService::getLegalMoves() const
 {
     return board_->legalMoves(getCurrentPlayer(), rules_);

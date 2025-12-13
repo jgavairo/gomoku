@@ -66,6 +66,8 @@ public:
     // Sparse occupied cells accessor (for fast scans in generators/eval)
     const std::vector<Pos>& occupiedPositions() const;
 
+    const std::vector<Move>& getRedoHistory() const { return redoHistory; }
+
 private:
     static constexpr int N = BOARD_SIZE * BOARD_SIZE;
 
