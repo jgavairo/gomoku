@@ -186,6 +186,8 @@ int Evaluator::evaluate(const Board& board, Player perspective) const noexcept
     int patternScore = 0;
     int potentialCaptureScore = 0;
 
+    const int oppCaptures = (perspective == Player::Black) ? caps.white : caps.black;
+
     // 4) Strategic figures (double threats, forks)
     // Count threatening patterns per player
     int myThreats[5] = { 0 }; // Index: [open_fours, closed_fours, open_threes, closed_threes, twos]
@@ -290,7 +292,12 @@ int Evaluator::evaluate(const Board& board, Player perspective) const noexcept
             if (c == me && hasCapturePattern(board, x, y, dx, dy, me, opp)) {
                 potentialCaptureScore += cfg_.captureSetupBonus; // Bonus for potential capture setup
             } else if (c == opp && hasCapturePattern(board, x, y, dx, dy, opp, me)) {
-                potentialCaptureScore -= cfg_.captureSetupPenalty; // Penalty if opponent has capture setup
+                int penalty = cfg_.captureSetupPenalty;
+                if (oppCaptures >= 4)
+                    penalty *= 6;
+                else if (oppCaptures >= 3)
+                    penalty *= 2;
+                potentialCaptureScore -= penalty;
             }
 
             // Classify threat for strategic combinations
