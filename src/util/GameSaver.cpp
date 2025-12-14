@@ -62,9 +62,9 @@ void GameSaver::save(const SaveData& data, const GameSnapshot& snapshot)
     std::ofstream file(saveFilePath(), std::ios::binary);
     if (file) {
         file.write(reinterpret_cast<const char*>(buffer.data()), buffer.size());
-        std::cout << "[GameSaver] Game saved to " << saveFilePath() << " (" << buffer.size() << " bytes)" << std::endl;
+        LOG_INFO("Game saved to " + saveFilePath() + " (" + std::to_string(buffer.size()) + " bytes)");
     } else {
-        std::cerr << "[GameSaver] Failed to open save file for writing" << std::endl;
+        LOG_ERROR("Failed to open save file for writing");
     }
 }
 

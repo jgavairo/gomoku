@@ -1,4 +1,5 @@
 #include "gui/ResourceManager.hpp"
+#include "util/Logger.hpp"
 #include <iostream>
 #include <string>
 
@@ -13,9 +14,9 @@ ResourceManager::~ResourceManager() = default;
 
 bool ResourceManager::init()
 {
-    std::cout << "Initializing ResourceManager" << std::endl;
+    LOG_INFO("Initializing ResourceManager");
 
-    std::cout << "Texture path: " << texturePath_ << std::endl;
+    LOG_DEBUG("Texture path: " + texturePath_);
 
     if (!loadTexture("background", texturePath_ + "Title with bg.png"))
         return false;
@@ -72,11 +73,9 @@ bool ResourceManager::init()
     if (!loadTexture("continue_button", texturePath_ + "ui/continue_button.png"))
         return false;
 
-
     setAudioPackage("default");
 
-
-    std::cout << "ResourceManager initialized" << std::endl;
+    LOG_INFO("ResourceManager initialized");
     return true;
 }
 
@@ -88,32 +87,35 @@ bool ResourceManager::setTexturePackage(const std::string& theme)
     auto themed = [&](const std::string& rel) { return newPath + rel; };
     auto deflt = [&](const std::string& rel) { return std::string("assets/textures_pack/default/") + rel; };
 
-    struct Item { const char* key; const char* rel; } items[] = {
-        {"background", "Title with bg.png"},
-        {"gameBackground", "background.png"},
-        {"board", "board.png"},
-        {"pawn1", "whitePawn.png"},
-        {"pawn2", "blackPawn.png"},
-        {"pawn_hint", "helperPawn.png"},
-        {"hint_button", "ui/help_button.png"},
-        {"play_button", "ui/play_button.png"},
-        {"quit_game_button", "ui/quit_game_button.png"},
-        {"settings_button", "ui/settings_button.png"},
-        {"exit_button", "ui/exit_button.png"},
-        {"vs_player_button", "ui/vs_player_button.png"},
-        {"vs_ai_button", "ui/vs_ai_button.png"},
-        {"back_button", "ui/back_button.png"},
-        {"empty_background", "background.png"},
-        {"default_theme_button", "ui/default_theme_button.png"},
-        {"halloween_theme_button", "ui/halloween_theme_button.png"},
-        {"pastel_theme_button", "ui/pastel_theme_button.png"},
-        {"settings_menu", "settings_menu.png"},
-        {"sound_on", "ui/sound_on.png"},
-        {"sound_off", "ui/sound_off.png"},
-        {"white_win", "white_win.png"},
-        {"black_win", "black_win.png"},
-        {"new_game_button", "ui/new_game_button.png"},
-        {"continue_button", "ui/continue_button.png"},
+    struct Item {
+        const char* key;
+        const char* rel;
+    } items[] = {
+        { "background", "Title with bg.png" },
+        { "gameBackground", "background.png" },
+        { "board", "board.png" },
+        { "pawn1", "whitePawn.png" },
+        { "pawn2", "blackPawn.png" },
+        { "pawn_hint", "helperPawn.png" },
+        { "hint_button", "ui/help_button.png" },
+        { "play_button", "ui/play_button.png" },
+        { "quit_game_button", "ui/quit_game_button.png" },
+        { "settings_button", "ui/settings_button.png" },
+        { "exit_button", "ui/exit_button.png" },
+        { "vs_player_button", "ui/vs_player_button.png" },
+        { "vs_ai_button", "ui/vs_ai_button.png" },
+        { "back_button", "ui/back_button.png" },
+        { "empty_background", "background.png" },
+        { "default_theme_button", "ui/default_theme_button.png" },
+        { "halloween_theme_button", "ui/halloween_theme_button.png" },
+        { "pastel_theme_button", "ui/pastel_theme_button.png" },
+        { "settings_menu", "settings_menu.png" },
+        { "sound_on", "ui/sound_on.png" },
+        { "sound_off", "ui/sound_off.png" },
+        { "white_win", "white_win.png" },
+        { "black_win", "black_win.png" },
+        { "new_game_button", "ui/new_game_button.png" },
+        { "continue_button", "ui/continue_button.png" },
     };
 
     bool allOk = true;
@@ -123,7 +125,7 @@ bool ResourceManager::setTexturePackage(const std::string& theme)
         // Essaye chemin du thème, sinon fallback défaut, sinon garde l'ancienne texture
         if (!loadTextureIfExists(it.key, themedPath)) {
             if (!loadTextureIfExists(it.key, defaultPath)) {
-                std::cerr << "Warning: texture '" << it.key << "' not found in theme nor default. Keeping previous if any." << std::endl;
+                LOG_WARNING("Texture '" + std::string(it.key) + "' not found in theme nor default. Keeping previous if any.");
                 allOk = false; // mais on n'invalide pas l'état existant
             }
         }
@@ -134,17 +136,17 @@ bool ResourceManager::setTexturePackage(const std::string& theme)
 
 void ResourceManager::cleanup()
 {
-    std::cout << "Cleaning up ResourceManager" << std::endl;
+    LOG_INFO("Cleaning up ResourceManager");
     textures_.clear();
     sounds_.clear();
-    std::cout << "ResourceManager cleaned up" << std::endl;
+    LOG_INFO("ResourceManager cleaned up");
 }
 
 sf::Texture& ResourceManager::getTexture(const std::string& name)
 {
     auto it = textures_.find(name);
     if (it == textures_.end()) {
-        std::cerr << "Texture " << name << " not found" << std::endl;
+        LOG_ERROR("Texture " + name + " not found");
         throw std::runtime_error("Texture not found");
     }
     return it->second;
@@ -154,12 +156,12 @@ bool ResourceManager::loadTexture(const std::string& name, const std::string& pa
 {
     sf::Texture texture;
     if (!texture.loadFromFile(path)) {
-        std::cerr << "Failed to load texture " << name << " from " << path << std::endl;
+        LOG_ERROR("Failed to load texture " + name + " from " + path);
         return false;
     }
     texture.setSmooth(true);
     textures_[name] = std::move(texture);
-    std::cout << "Texture " << name << " loaded" << std::endl;
+    LOG_DEBUG("Texture " + name + " loaded");
     return true;
 }
 
@@ -171,7 +173,7 @@ bool ResourceManager::loadTextureIfExists(const std::string& name, const std::st
     }
     texture.setSmooth(true);
     textures_[name] = std::move(texture);
-    std::cout << "Texture " << name << " loaded" << std::endl;
+    LOG_DEBUG("Texture " + name + " loaded");
     return true;
 }
 
@@ -184,11 +186,11 @@ bool ResourceManager::loadSound(const std::string& name, const std::string& path
 {
     sf::SoundBuffer buffer;
     if (!buffer.loadFromFile(path)) {
-        std::cerr << "Failed to load sound " << name << " from " << path << std::endl;
+        LOG_ERROR("Failed to load sound " + name + " from " + path);
         return false;
     }
     sounds_[name] = std::move(buffer);
-    std::cout << "Sound " << name << " loaded" << std::endl;
+    LOG_DEBUG("Sound " + name + " loaded");
     return true;
 }
 
@@ -196,11 +198,11 @@ bool ResourceManager::loadSoundOptional(const std::string& name, const std::stri
 {
     sf::SoundBuffer buffer;
     if (!buffer.loadFromFile(path)) {
-        std::cerr << "(Optional) could not load sound " << name << " from " << path << std::endl;
+        LOG_WARNING("(Optional) could not load sound " + name + " from " + path);
         return false;
     }
     sounds_[name] = std::move(buffer);
-    std::cout << "Sound " << name << " loaded" << std::endl;
+    LOG_DEBUG("Sound " + name + " loaded");
     return true;
 }
 
@@ -216,7 +218,6 @@ const sf::SoundBuffer* ResourceManager::getSound(const std::string& name) const
         return nullptr;
     return &it->second;
 }
-
 
 bool ResourceManager::setAudioPackage(const std::string& theme)
 {

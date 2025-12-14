@@ -6,10 +6,10 @@
 #include "scene/MainMenu.hpp"
 #include "scene/Settings.hpp"
 #include "util/GameSaver.hpp"
+#include "util/Logger.hpp"
 #include "util/Preferences.hpp"
 #include <cmath>
 #include <iostream>
-#include "util/Logger.hpp"
 
 namespace gomoku::gui {
 
@@ -28,7 +28,7 @@ void GameWindow::init()
 {
     window_.create({ 1920, 1080 }, "Gomoku", sf::Style::Close | sf::Style::Titlebar);
     window_.setFramerateLimit(60);
-    std::cout << "[INIT] Window created" << std::endl;
+    LOG_INFO("Window created");
 
     context_ = Context();
     context_.window = &window_;
@@ -38,10 +38,10 @@ void GameWindow::init()
     context_.sfxVoices = &sfxVoices_;
 
     if (!resourceManager_.init()) {
-        std::cerr << "Failed to initialize ResourceManager" << std::endl;
+        LOG_ERROR("Failed to initialize ResourceManager");
         return;
     }
-    std::cout << "[INIT] ResourceManager ready" << std::endl;
+    LOG_INFO("ResourceManager ready");
 
     // Charger préférences (theme + flags audio)
     {
@@ -61,11 +61,11 @@ void GameWindow::init()
     backgroundSprite_ = new sf::Sprite(resourceManager_.getTexture("background"));
     backgroundSprite_->setScale({ 1.f, 1.f });
     layoutBackgroundToWindow();
-    std::cout << "[INIT] Background sprite created" << std::endl;
+    LOG_INFO("Background sprite created");
 
     introActive_ = radialMask_.loadFromFile("assets/shaders/radial_mask.frag", sf::Shader::Type::Fragment);
     introClock_.restart();
-    std::cout << "[INIT] Shader loaded? " << (introActive_ ? "yes" : "no") << std::endl;
+    LOG_INFO("Shader loaded? " + std::string(introActive_ ? "yes" : "no"));
 
     // Start menu music based on current theme and user preference
     {
@@ -81,7 +81,7 @@ void GameWindow::init()
 
     currentScene_ = std::make_unique<MainMenu>(context_);
     currentScene_->onEnter();
-    std::cout << "[INIT] MainMenu created" << std::endl;
+    LOG_INFO("MainMenu created");
 
     isRunning_ = true;
 }
@@ -193,27 +193,18 @@ void GameWindow::run()
         if (context_.inGame && !context_.showGameSelectMenu && !context_.showMainMenu) {
             if (currentScene_)
                 currentScene_->onExit();
-                LOG_DEBUG("GameWindow: Switching to GameScene");
-            std::cout << "[RUN] switch -> GameScene (vsAi=" << (context_.vsAi ? "true" : "false") << ")" << std::endl;
+            LOG_DEBUG("Switching to GameScene (vsAi=" + std::string(context_.vsAi ? "true" : "false") + ")");
             setBackgroundSpriteTexturePrefer("background");
             auto gameScene = std::make_unique<GameScene>(context_, context_.vsAi);
             if (context_.shouldLoadGame) {
-                try
-                {
+                try {
                     gameScene->loadGame();
                     currentScene_ = std::move(gameScene);
+                } catch (const std::exception& e) {
+                    LOG_ERROR("GameWindow: Save data are corrupted");
                 }
-                catch(const std::exception& e)
-                {
-                    std::string error;
-                    error = "GameWindow: Save data are corrupted";
-                    LOG_ERROR(error);
-                }
-                LOG_INFO("GameWindow: before loading game, shouldLoadGame=true");
                 context_.shouldLoadGame = false;
-                LOG_INFO("GameWindow: after loading game, shouldLoadGame=false");
-            }
-            else {
+            } else {
                 currentScene_ = std::move(gameScene);
             }
             context_.inGame = false;
@@ -224,14 +215,14 @@ void GameWindow::run()
         } else if (context_.showGameSelectMenu && !context_.inGame && !context_.showMainMenu) {
             if (currentScene_)
                 currentScene_->onExit();
-            std::cout << "[RUN] switch -> GameSelect" << std::endl;
+            LOG_DEBUG("Switching to GameSelect");
             setBackgroundSpriteTexturePrefer("background");
             currentScene_ = std::make_unique<GameSelectScene>(context_);
             context_.showGameSelectMenu = false;
         } else if (context_.showSettingsMenu && !context_.inGame && !context_.showMainMenu && !context_.showGameSelectMenu) {
             if (currentScene_)
                 currentScene_->onExit();
-            std::cout << "[RUN] switch -> Settings" << std::endl;
+            LOG_DEBUG("Switching to Settings");
             // Fond spécial Settings
             setBackgroundSpriteTexturePrefer("settings_menu");
             currentScene_ = std::make_unique<gomoku::scene::SettingsScene>(context_);
@@ -240,7 +231,7 @@ void GameWindow::run()
         } else if (context_.showMainMenu && !context_.inGame && !context_.showGameSelectMenu) {
             if (currentScene_)
                 currentScene_->onExit();
-            std::cout << "[RUN] switch -> MainMenu" << std::endl;
+            LOG_DEBUG("Switching to MainMenu");
             currentScene_ = std::make_unique<MainMenu>(context_);
             // Revenir au fond générique
             setBackgroundSpriteTexturePrefer("background");
@@ -248,7 +239,7 @@ void GameWindow::run()
         } else if (context_.showLoadGameMenu && !context_.inGame && !context_.showGameSelectMenu) {
             if (currentScene_)
                 currentScene_->onExit();
-            std::cout << "[RUN] switch -> MainMenu" << std::endl;
+            LOG_DEBUG("Switching to LoadGameScene");
             currentScene_ = std::make_unique<LoadGameScene>(context_);
             // Revenir au fond générique
             setBackgroundSpriteTexturePrefer("background");
