@@ -32,8 +32,6 @@ void LoadGameScene::onThemeChanged()
 {
     if (!context_.resourceManager)
         return;
-
-    LOG_DEBUG("GameSelect: Texture update after theme change");
     if (context_.resourceManager->hasTexture("vs_player_button"))
         continueButton_.setTexture(&context_.resourceManager->getTexture("vs_player_button"));
     if (context_.resourceManager->hasTexture("vs_ai_button"))
@@ -50,7 +48,6 @@ bool LoadGameScene::handleInput(sf::Event& event)
             bool c = btn.handleInput(event, *context_.window);
             if (event.type == sf::Event::MouseButtonReleased && c) {
                 playSfx("ui_click", BUTTON_VOLUME);
-                LOG_DEBUG("GameSelect: Button click detected");
             }
             return c;
         };
@@ -61,7 +58,7 @@ bool LoadGameScene::handleInput(sf::Event& event)
 
 void LoadGameScene::onContinueClicked()
 {
-    LOG_INFO("LoadGame: Continue clicked");
+    LOG_INFO("LoadGame: Continue button clicked");
     context_.shouldLoadGame = true;
     context_.inGame = true;
     context_.showLoadGameMenu = false;
@@ -74,7 +71,7 @@ void LoadGameScene::onNewGameClicked()
 
 void LoadGameScene::onBackClicked()
 {
-    LOG_INFO("LoadGame: Back to main menu");
+    LOG_INFO("LoadGame: Back button clicked");
     context_.showGameSelectMenu = false;
     context_.inGame = false;
     context_.showMainMenu = true;

@@ -9,7 +9,7 @@ namespace gomoku::scene {
 MainMenu::MainMenu(Context& context)
     : AScene(context)
 {
-    std::cout << "[MainMenu] ctor" << std::endl;
+    LOG_DEBUG("Main menu: initialized");
     initButtons(playButton_, "play_button", { 111, 696 }, 1.0f, [this]() { onPlayClicked(); });
     initButtons(settingsButton_, "settings_button", { 693, 696 }, 1.0f, [this]() { onSettingsClicked(); });
     initButtons(exitButton_, "exit_button", { 1284, 695.5f }, 1.0f, [this]() { onExitClicked(); });
@@ -60,7 +60,6 @@ void MainMenu::onThemeChanged()
 
 void MainMenu::onPlayClicked()
 {
-    // WAINTING FIX >>> if save exist
     if (gomoku::util::GameSaver::hasSave()) {
         LOG_INFO("SAVE EXIST");
         context_.inGame = false;
@@ -74,9 +73,6 @@ void MainMenu::onPlayClicked()
         context_.showGameSelectMenu = true;
         context_.from_loadGame = false;
     }
-    // sinon afficher direct //gameselectmenu
-
-    // keep menu music by default
 }
 
 void MainMenu::onSettingsClicked()

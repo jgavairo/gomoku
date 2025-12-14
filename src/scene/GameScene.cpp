@@ -9,6 +9,7 @@
 #include <fstream>
 #include <iostream>
 #include <vector>
+#include "util/Logger.hpp"
 
 namespace gomoku::scene {
 
@@ -369,6 +370,7 @@ void GameScene::render(sf::RenderTarget& target) const
 
 void GameScene::onUndoClicked()
 {
+    LOG_DEBUG("GameScene: Undo button clicked");
     int steps = 1;
     if (vsAi_) {
         auto snap = gameSession_.snapshot();
@@ -413,8 +415,8 @@ void GameScene::displayInfos(GameSnapshot snapshot, int aiTime, sf::RenderTarget
 
     std::stringstream ss;
     ss << "\n\n\n\nTo move ";
-    ss << "\n\nCaptured :         : " << black_captured 
-       << " |         : " << white_captured;
+    ss << "\n\nCaptured        " << black_captured 
+       << "         " << white_captured;
     ss << "\n\nTurn " << turn;
 
     if (aiTime >= 0) {
@@ -442,7 +444,7 @@ void GameScene::displayInfos(GameSnapshot snapshot, int aiTime, sf::RenderTarget
         }
         
         sf::Sprite blackPawnSprite(resourceManager->getTexture("pawn2"));
-        float blackPawnX = 20.0f + 130.0f; 
+        float blackPawnX = 20.0f + 187.0f; 
         float blackPawnY = 20.0f + 125.0f;
         const auto& blackTexture = blackPawnSprite.getTexture();
         if (blackTexture) {
@@ -453,7 +455,7 @@ void GameScene::displayInfos(GameSnapshot snapshot, int aiTime, sf::RenderTarget
         }
         
         sf::Sprite whitePawnSprite(resourceManager->getTexture("pawn1"));
-        float whitePawnX = 20.0f + 235.0f;
+        float whitePawnX = 20.0f + 110.0f;
         float whitePawnY = 20.0f + 125.0f;
         const auto& whiteTexture = whitePawnSprite.getTexture();
         if (whiteTexture) {
@@ -467,6 +469,7 @@ void GameScene::displayInfos(GameSnapshot snapshot, int aiTime, sf::RenderTarget
 
 void GameScene::onRedoClicked()
 {
+    LOG_DEBUG("GameScene: Redo button clicked");
     auto result = gameSession_.redo(vsAi_ ? 2 : 1);
     if (!result.ok) {
         illegalMsg_ = result.why;
@@ -481,15 +484,13 @@ void GameScene::onRedoClicked()
 
 void GameScene::onQuitGameClicked()
 {
-    // Save plateau si game non finie
+    LOG_DEBUG("GameScene: Quit button clicked");
     auto snap = gameSession_.snapshot();
     if (snap.status == gomoku::GameStatus::Ongoing) {
         gomoku::util::SaveData data;
         data.vsAi = vsAi_;
         gomoku::util::GameSaver::save(data, snap);
     }
-
-    printf("on Quit Game Clicked\n");
     context_.inGame = false;
     context_.showMainMenu = true;
     std::string musicPath = std::string("assets/audio/") + context_.theme + "/menu_theme.ogg";
@@ -503,10 +504,8 @@ void GameScene::loadGame()
 
     if (gomoku::util::GameSaver::load(data, boardData)) {
         // Restore mode if different
-        if (data.vsAi != vsAi_) {
-            std::cout << "[GameScene] Switching mode to match save: " << (data.vsAi ? "AI" : "PvP") << std::endl;
+        if (data.vsAi != vsAi_)
             vsAi_ = data.vsAi;
-        }
 
         // Enforce controller config
         if (vsAi_) {
@@ -520,7 +519,7 @@ void GameScene::loadGame()
 
         auto result = gameSession_.load(boardData);
         if (result.ok) {
-            std::cout << "[GameScene] Game loaded successfully" << std::endl;
+            LOG_DEBUG("Save game has been loaded");
             auto snap = gameSession_.snapshot();
             const_cast<gomoku::gui::GameBoardRenderer&>(boardRenderer_).setBoardView(snap.view);
 
@@ -532,32 +531,24 @@ void GameScene::loadGame()
                 pendingAi_ = false;
             }
         } else {
-            throw std::runtime_error("[GameScene] Failed to load game: " + result.why);
+            throw std::runtime_error("Failed to load game: " + result.why);
         }
     } else {
-        std::cerr << "[GameScene] No valid save found." << std::endl;
+        LOG_ERROR("Not a valid save found");
     }
 }
 
 void GameScene::onHintClicked()
 {
-    std::cout << "Hint clicked" << std::endl;
-    // Toggle: si déjà affiché, on masque
+    LOG_DEBUG("GameScene: Hint button clicked");
     if (hintEnabled_) {
         return;
     }
-
     auto result = gameSession_.hint(500);
     if (!result.mv)
         return;
-    std::cout << "Hint: " << result.mv->pos << std::endl;
     hintPos_ = result.mv->pos;
     hintEnabled_ = true;
-    if (result.stats) {
-        std::cout << "  Depth: " << result.stats->depthReached
-                  << ", Nodes: " << result.stats->nodes
-                  << ", TT hits: " << result.stats->ttHits << std::endl;
-    }
 }
 
 } // namespace gomoku::scene

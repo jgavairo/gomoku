@@ -2,6 +2,7 @@
 #include "util/Logger.hpp"
 #include <iostream>
 #include <string>
+#include "util/Logger.hpp"
 
 namespace gomoku::gui {
 

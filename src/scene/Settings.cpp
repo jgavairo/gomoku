@@ -2,6 +2,7 @@
 #include <iostream>
 #include "audio/Volumes.hpp"
 #include "util/Preferences.hpp"
+#include "util/Logger.hpp"
 
 constexpr const char* ON_KEY = "sound_on";
 constexpr const char* OFF_KEY = "sound_off";
@@ -56,7 +57,6 @@ void SettingsScene::onThemeChanged()
         halloweenBtn_.setTexture(&context_.resourceManager->getTexture("halloween_theme_button"));
     if (context_.resourceManager->hasTexture("pastel_theme_button"))
         pastelBtn_.setTexture(&context_.resourceManager->getTexture("pastel_theme_button"));
-    // rafraîchit icônes (thémées)
     if (context_.resourceManager->hasTexture(context_.sfxEnabled ? ON_KEY : OFF_KEY))
         sfxToggleBtn_.setTexture(&context_.resourceManager->getTexture(context_.sfxEnabled ? ON_KEY : OFF_KEY));
     if (context_.resourceManager->hasTexture(context_.musicEnabled ? ON_KEY : OFF_KEY))
@@ -86,15 +86,16 @@ void SettingsScene::applyTheme(const std::string& themeName)
         context_.themeChanged = true;
         std::string musicPath = std::string("assets/audio/") + themeName + "/menu_theme.ogg";
         playMusic(musicPath.c_str(), true, MUSIC_VOLUME);
-        // persiste préférences
         gomoku::util::PreferencesData prefs;
         prefs.theme = context_.theme;
         prefs.sfxEnabled = context_.sfxEnabled;
         prefs.musicEnabled = context_.musicEnabled;
         gomoku::util::Preferences::save(prefs);
-        std::cout << "Theme applied: " << themeName << std::endl;
+        std::string msg = "Theme changed [" + themeName + "]";
+        LOG_DEBUG(msg);
     } else {
-        std::cerr << "Failed to apply theme " << themeName << std::endl;
+        std::string msg = "Failed to apply theme " + themeName;
+        LOG_ERROR(msg);
     }
 }
 
