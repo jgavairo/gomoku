@@ -1,6 +1,7 @@
 #include "gui/ResourceManager.hpp"
 #include <iostream>
 #include <string>
+#include "util/Logger.hpp"
 
 namespace gomoku::gui {
 
@@ -13,9 +14,7 @@ ResourceManager::~ResourceManager() = default;
 
 bool ResourceManager::init()
 {
-    std::cout << "Initializing ResourceManager" << std::endl;
-
-    std::cout << "Texture path: " << texturePath_ << std::endl;
+    LOG_DEBUG("Initializing ResourceManager");
 
     if (!loadTexture("background", texturePath_ + "Title with bg.png"))
         return false;

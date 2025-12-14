@@ -87,14 +87,14 @@ void GameSelectScene::onBackClicked()
 {
     if (context_.from_loadGame)
     {
-        LOG_INFO("GameSelect: Back to load game menu");
+        LOG_INFO("GameSelect: Back button clicked");
         context_.showGameSelectMenu = false;
         context_.inGame = false;
         context_.showLoadGameMenu = true;
     }
     else
     {
-        LOG_INFO("GameSelect: Back to main menu");
+        LOG_INFO("GameSelect: Back button clicked");
         context_.showGameSelectMenu = false;
         context_.inGame = false;
         context_.showMainMenu = true;
