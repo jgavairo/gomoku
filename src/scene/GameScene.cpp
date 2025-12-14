@@ -336,7 +336,7 @@ void GameScene::render(sf::RenderTarget& target) const
     redoButton_.render(target);
     // HUD: toPlay, captures, last move, AI time
     GameSnapshot snap = gameSession_.snapshot();
-    displayInfos(snap, lastAiMs_, target, hudText_, fontOk_);
+    displayInfos(snap, lastAiMs_, target, hudText_, fontOk_, context_.resourceManager);
 
     // Illegal message (timed)
     if (fontOk_ && !illegalMsg_.empty() && illegalClock_.getElapsedTime().asSeconds() < 2.0f) {
@@ -403,43 +403,66 @@ void GameScene::onUndoClicked()
     hintPos_.reset();
 }
 
-void GameScene::displayInfos(GameSnapshot snapshot, int aiTime, sf::RenderTarget& target, sf::Text hudText_, bool fontOk_)
+void GameScene::displayInfos(GameSnapshot snapshot, int aiTime, sf::RenderTarget& target, sf::Text hudText_, bool fontOk_, gomoku::gui::ResourceManager* resourceManager)
 {
     auto captures = snapshot.captures;
     auto white_captured = captures.second;
     auto black_captured = captures.first;
     int turn = ((snapshot.moveCount + 1) / 2);
-    std::string toPlayStr = (snapshot.toPlay == gomoku::Player::Black ? "Black" : "White");
 
-    // --- 2. Construction de la Chaîne avec std::stringstream ---
+
     std::stringstream ss;
-    
-    // Ligne 1: Joueur à jouer et Numéro du Tour
-    ss << "\n\n\n\nTo move " << toPlayStr;
-
-    // Ligne 2: Captures
-    ss << "\n\nCaptured :  B  : " << black_captured 
-       << " |  W  : " << white_captured;
-       
-    // Ligne 3: Nombre de mouvements total
+    ss << "\n\n\n\nTo move ";
+    ss << "\n\nCaptured :         : " << black_captured 
+       << " |         : " << white_captured;
     ss << "\n\nTurn " << turn;
 
-    // Ligne 4: Temps de l'IA (conditionnel)
     if (aiTime >= 0) {
         ss << "\n\nAI " << aiTime << "ms";
     }
-
-    // --- 3. Envoi à la Cible (Rendu SFML) ---
-    
-    // Vérification de la police (nécessaire pour éviter les crashs si font_ n'est pas chargée)
     if (fontOk_) {
-        // Définit le contenu de l'objet sf::Text membre (hudText_)
+        hudText_.setStyle(sf::Text::Bold);
         hudText_.setString(ss.str()); 
-        
-        // Dessine le texte sur la cible de rendu (votre fenêtre SFML)
         target.draw(hudText_);
     }
-    
+
+    if (resourceManager && resourceManager->hasTexture("pawn1") && resourceManager->hasTexture("pawn2")) {
+        float pawnSize = 40.0f; // Taille un peu plus petite pour les pions dans "Captured"
+        
+        const std::string pawnTextureName = (snapshot.toPlay == gomoku::Player::Black) ? "pawn2" : "pawn1";
+        sf::Sprite pawnSprite(resourceManager->getTexture(pawnTextureName));
+        float pawnX = 20.0f + 110.0f;
+        float pawnY = 20.0f + 80.0f;
+        const auto& texture = pawnSprite.getTexture();
+        if (texture) {
+            float scale = pawnSize / static_cast<float>(texture->getSize().x);
+            pawnSprite.setScale(scale, scale);
+            pawnSprite.setPosition(pawnX, pawnY);
+            target.draw(pawnSprite);
+        }
+        
+        sf::Sprite blackPawnSprite(resourceManager->getTexture("pawn2"));
+        float blackPawnX = 20.0f + 130.0f; 
+        float blackPawnY = 20.0f + 125.0f;
+        const auto& blackTexture = blackPawnSprite.getTexture();
+        if (blackTexture) {
+            float scale = pawnSize / static_cast<float>(blackTexture->getSize().x);
+            blackPawnSprite.setScale(scale, scale);
+            blackPawnSprite.setPosition(blackPawnX, blackPawnY);
+            target.draw(blackPawnSprite);
+        }
+        
+        sf::Sprite whitePawnSprite(resourceManager->getTexture("pawn1"));
+        float whitePawnX = 20.0f + 235.0f;
+        float whitePawnY = 20.0f + 125.0f;
+        const auto& whiteTexture = whitePawnSprite.getTexture();
+        if (whiteTexture) {
+            float scale = pawnSize / static_cast<float>(whiteTexture->getSize().x);
+            whitePawnSprite.setScale(scale, scale);
+            whitePawnSprite.setPosition(whitePawnX, whitePawnY);
+            target.draw(whitePawnSprite);
+        }
+    }
 }
 
 void GameScene::onRedoClicked()
