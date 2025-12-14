@@ -17,6 +17,7 @@ public:
 
     // Save game state (binary) and metadata
     static void save(const SaveData& data, const GameSnapshot& snapshot);
+    static void deleteSave();
 
     // Load game state (binary) and metadata
     // Returns true if successful

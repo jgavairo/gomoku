@@ -97,4 +97,13 @@ bool GameSaver::load(SaveData& outData, std::vector<uint8_t>& outBoardData)
     return true;
 }
 
+void GameSaver::deleteSave()
+{
+    std::string path = saveFilePath();
+    if (fs::exists(path)) {
+        fs::remove(path);
+        LOG_INFO("Deleted save file: " + path);
+    }
+}
+
 } // namespace gomoku::util

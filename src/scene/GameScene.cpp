@@ -490,6 +490,9 @@ void GameScene::onQuitGameClicked()
         gomoku::util::SaveData data;
         data.vsAi = vsAi_;
         gomoku::util::GameSaver::save(data, snap);
+    } else {
+        // Delete existing save if any
+        gomoku::util::GameSaver::deleteSave();
     }
     context_.inGame = false;
     context_.showMainMenu = true;

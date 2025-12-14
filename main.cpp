@@ -13,7 +13,7 @@ int main()
     logger.setLogLevel(gomoku::LogLevel::DEBUG);
     LOG_DEBUG("Gomoku started in DEBUG mode");
 #else
-    logger.setLogLevel(gomoku::LogLevel::DEBUG);
+    logger.setLogLevel(gomoku::LogLevel::INFO);
 #endif
 
     LOG_INFO("=== GOMOKU GAME STARTED ===");
