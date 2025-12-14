@@ -342,7 +342,7 @@ int MinimaxSearch::negamax(Board& board, int depth, int alpha, int beta, int ply
     return bestScore;
 }
 
-// Recherche de quiétude (Gomoku):
+// Recherche de quiétude:
 //  - Stabilise l'évaluation en explorant uniquement les coups tactiques pertinents Gomoku:
 //    • gains immédiats (faire 5), parades immédiates (bloquer 5/adversaire),
 //    • créations/bloquages de quatre ouverts,
@@ -383,9 +383,6 @@ int MinimaxSearch::qsearch(Board& board, int alpha, int beta, int ply, const Sea
         return alpha;
 
     auto moves = CandidateGenerator::generateTactical(board, ctx.rules, toMove);
-
-    // Tri basique : captures d'abord ?
-    // Pour l'instant on fait confiance à l'ordre de génération (qui est spatial)
 
     for (const auto& m : moves) {
         auto pr = board.tryPlay(m, ctx.rules);
