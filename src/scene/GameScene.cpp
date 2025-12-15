@@ -408,8 +408,8 @@ void GameScene::onUndoClicked()
 void GameScene::displayInfos(GameSnapshot snapshot, int aiTime, sf::RenderTarget& target, sf::Text hudText_, bool fontOk_, gomoku::gui::ResourceManager* resourceManager)
 {
     auto captures = snapshot.captures;
-    auto white_captured = captures.second;
-    auto black_captured = captures.first;
+    auto white_captured = captures.second * 2;
+    auto black_captured = captures.first * 2;
     int turn = ((snapshot.moveCount + 1) / 2);
 
 
